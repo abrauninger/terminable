@@ -8,7 +8,14 @@ struct Listener {
 impl Listener {
 	#[new]
 	fn new() -> Self {
+		println!("Creating a Listener object");
 		Listener {}
+	}
+}
+
+impl Drop for Listener {
+	fn drop(&mut self) {
+		println!("Destroying a Listener object");
 	}
 }
 
