@@ -6,6 +6,7 @@ use crossterm::{
 
 use pyo3::exceptions::PyKeyboardInterrupt;
 use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyType};
 
 struct RawMode {
 }
@@ -48,6 +49,18 @@ impl Listener {
 	fn new() -> Self {
 		println!("Creating a Listener object");
 		Listener { mode: Some(RawMode::new()) }
+	}
+
+	fn __enter__(slf: Py<Self>) -> Py<Self> {
+		slf
+	}
+
+	fn __exit__(
+		&self,
+	    _exc_type: Option<&PyType>, 
+	    _exc_value: Option<&PyAny>, 
+	    _traceback: Option<&PyAny>) -> PyResult<bool> {
+		Ok(false)
 	}
 
 	// TODO: Rename?  'listen'?

@@ -1,6 +1,5 @@
 import terminal_input
 
-listener = terminal_input.Listener()
-
-while True:
-	listener.read()
+with terminal_input.Listener() as listener:
+	while True:
+		listener.read()
