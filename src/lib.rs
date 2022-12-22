@@ -7,8 +7,27 @@ use crossterm::{
 use pyo3::exceptions::PyKeyboardInterrupt;
 use pyo3::prelude::*;
 
+struct RawMode {
+}
+
+impl RawMode {
+	fn new() -> Self {
+		println!("enable_raw_mode");
+		terminal::enable_raw_mode();
+		RawMode {}
+	}
+}
+
+impl Drop for RawMode {
+	fn drop(&mut self) {
+		terminal::disable_raw_mode();
+		println!("disable_raw_mode");
+	}
+}
+
 #[pyclass]
 struct Listener {
+	mode: RawMode
 }
 
 #[pymethods]
@@ -17,7 +36,7 @@ impl Listener {
 	fn new() -> Self {
 		println!("Creating a Listener object");
 		terminal::enable_raw_mode();
-		Listener {}
+		Listener { mode: RawMode {} }
 	}
 
 	// TODO: Rename?  'listen'?
@@ -41,7 +60,6 @@ impl Listener {
 
 impl Drop for Listener {
 	fn drop(&mut self) {
-		terminal::disable_raw_mode();
 		println!("Destroying a Listener object");
 	}
 }
