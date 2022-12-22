@@ -9,4 +9,5 @@ name = "terminal_input"
 crate-type = ["cdylib"]
 
 [dependencies]
+crossterm = "0.23"
 pyo3 = { version = "0.17.3", features = ["extension-module"] }

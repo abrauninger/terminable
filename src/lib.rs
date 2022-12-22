@@ -1,3 +1,9 @@
+use crossterm::{
+	event::{DisableMouseCapture, EnableMouseCapture, Event, read},
+	execute,
+	terminal,
+};
+
 use pyo3::prelude::*;
 
 #[pyclass]
@@ -9,12 +15,18 @@ impl Listener {
 	#[new]
 	fn new() -> Self {
 		println!("Creating a Listener object");
+		terminal::enable_raw_mode();
 		Listener {}
+	}
+
+	fn do_something(&self) {
+		println!("Something!");
 	}
 }
 
 impl Drop for Listener {
 	fn drop(&mut self) {
+		terminal::disable_raw_mode();
 		println!("Destroying a Listener object");
 	}
 }
