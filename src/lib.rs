@@ -27,7 +27,7 @@ impl Drop for RawMode {
 
 #[pyclass]
 struct Listener {
-	mode: RawMode
+	mode: Option<RawMode>
 }
 
 #[pymethods]
@@ -36,15 +36,16 @@ impl Listener {
 	fn new() -> Self {
 		println!("Creating a Listener object");
 		terminal::enable_raw_mode();
-		Listener { mode: RawMode {} }
+		Listener { mode: Some(RawMode {}) }
 	}
 
 	// TODO: Rename?  'listen'?
-	fn read(&self, py: Python<'_>) -> PyResult<()> {
+	fn read(&mut self, py: Python<'_>) -> PyResult<()> {
 		match crossterm::event::read()? {
     		Event::Key(event) => {
     			match event {
     				KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL } => {
+    					self.mode = None;
     					return Err(PyKeyboardInterrupt::new_err("Ctrl+C"));
     				}
     				_ => println!("{:?}\r", event)
