@@ -13,14 +13,26 @@ struct RawMode {
 impl RawMode {
 	fn new() -> Self {
 		println!("enable_raw_mode");
-		terminal::enable_raw_mode();
+		terminal::enable_raw_mode().unwrap();
+
+		execute!(
+	    	std::io::stdout(),
+	    	EnableMouseCapture,
+	    ).unwrap();
+
 		RawMode {}
 	}
 }
 
 impl Drop for RawMode {
 	fn drop(&mut self) {
-		terminal::disable_raw_mode();
+	    execute!(
+	    	std::io::stdout(),
+	    	DisableMouseCapture,
+	    ).unwrap();
+
+		terminal::disable_raw_mode().unwrap();
+
 		println!("disable_raw_mode");
 	}
 }
@@ -35,18 +47,17 @@ impl Listener {
 	#[new]
 	fn new() -> Self {
 		println!("Creating a Listener object");
-		terminal::enable_raw_mode();
-		Listener { mode: Some(RawMode {}) }
+		Listener { mode: Some(RawMode::new()) }
 	}
 
 	// TODO: Rename?  'listen'?
-	fn read(&mut self, py: Python<'_>) -> PyResult<()> {
+	fn read(&mut self) -> PyResult<()> {
 		match crossterm::event::read()? {
     		Event::Key(event) => {
     			match event {
     				KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL } => {
     					self.mode = None;
-    					return Err(PyKeyboardInterrupt::new_err("Ctrl+C"));
+    					return Err(PyKeyboardInterrupt::new_err(""));
     				}
     				_ => println!("{:?}\r", event)
     			}
