@@ -22,19 +22,17 @@ impl Listener {
 
 	// TODO: Rename?  'listen'?
 	fn read(&self, py: Python<'_>) -> PyResult<()> {
-		println!("Reading.");
-
 		match crossterm::event::read()? {
     		Event::Key(event) => {
     			match event {
     				KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL } => {
     					return Err(PyKeyboardInterrupt::new_err("Ctrl+C"));
     				}
-    				_ => println!("{:?}", event)
+    				_ => println!("{:?}\r", event)
     			}
     		},
-    		Event::Mouse(event) => println!("{:?}", event),
-    		Event::Resize(width, height) => println!("New size {}x{}", width, height),
+    		Event::Mouse(event) => println!("{:?}\r", event),
+    		Event::Resize(width, height) => println!("New size {}x{}\r", width, height),
 		}
 
 		Ok(())
