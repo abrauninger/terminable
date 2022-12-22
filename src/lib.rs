@@ -1,5 +1,5 @@
 use crossterm::{
-	event::{DisableMouseCapture, EnableMouseCapture, Event, read},
+	event::{DisableMouseCapture, EnableMouseCapture, Event},
 	execute,
 	terminal,
 };
@@ -19,8 +19,17 @@ impl Listener {
 		Listener {}
 	}
 
-	fn do_something(&self) {
-		println!("Something!");
+	// TODO: Rename?  'listen'?
+	fn read(&self) -> PyResult<()> {
+		println!("Reading.");
+
+		match crossterm::event::read()? {
+    		Event::Key(event) => println!("{:?}", event),
+    		Event::Mouse(event) => println!("{:?}", event),
+    		Event::Resize(width, height) => println!("New size {}x{}", width, height),
+		}
+
+		Ok(())
 	}
 }
 
