@@ -1,9 +1,10 @@
 use crossterm::{
-	event::{DisableMouseCapture, EnableMouseCapture, Event},
+	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers},
 	execute,
 	terminal,
 };
 
+use pyo3::exceptions::PyKeyboardInterrupt;
 use pyo3::prelude::*;
 
 #[pyclass]
@@ -20,11 +21,18 @@ impl Listener {
 	}
 
 	// TODO: Rename?  'listen'?
-	fn read(&self) -> PyResult<()> {
+	fn read(&self, py: Python<'_>) -> PyResult<()> {
 		println!("Reading.");
 
 		match crossterm::event::read()? {
-    		Event::Key(event) => println!("{:?}", event),
+    		Event::Key(event) => {
+    			match event {
+    				KeyEvent { code: KeyCode::Char('c'), modifiers: KeyModifiers::CONTROL } => {
+    					return Err(PyKeyboardInterrupt::new_err("Ctrl+C"));
+    				}
+    				_ => println!("{:?}", event)
+    			}
+    		},
     		Event::Mouse(event) => println!("{:?}", event),
     		Event::Resize(width, height) => println!("New size {}x{}", width, height),
 		}
