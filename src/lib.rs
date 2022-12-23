@@ -39,16 +39,16 @@ impl Drop for RawMode {
 }
 
 #[pyclass]
-struct Listener {
+struct InputCapture {
 	mode: Option<RawMode>
 }
 
 #[pymethods]
-impl Listener {
+impl InputCapture {
 	#[new]
 	fn new() -> Self {
-		println!("Creating a Listener object");
-		Listener { mode: Some(RawMode::new()) }
+		println!("Creating a InputCapture object");
+		InputCapture { mode: Some(RawMode::new()) }
 	}
 
 	fn __enter__(slf: Py<Self>) -> Py<Self> {
@@ -83,15 +83,21 @@ impl Listener {
 	}
 }
 
-impl Drop for Listener {
+impl Drop for InputCapture {
 	fn drop(&mut self) {
-		println!("Destroying a Listener object");
+		println!("Destroying a InputCapture object");
 	}
+}
+
+#[pyfunction]
+fn capture() -> InputCapture {
+	return InputCapture::new();
 }
 
 /// A Python module implemented in Rust.
 #[pymodule]
 fn terminal_input(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<Listener>()?;
+    m.add_class::<InputCapture>()?;
+    m.add_function(wrap_pyfunction!(capture, m)?)?;
     Ok(())
 }
