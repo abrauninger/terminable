@@ -4,7 +4,7 @@ use crossterm::{
 	terminal,
 };
 
-use pyo3::exceptions::{PyException, PyKeyboardInterrupt};
+use pyo3::exceptions::{PyKeyboardInterrupt};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 
@@ -63,6 +63,10 @@ enum InternalKeyEvent {
 	Char(Char),
 	Key(Key),
 	None,
+}
+
+fn key(k: Key) -> InternalKeyEvent {
+	return InternalKeyEvent::Key(k)
 }
 
 #[pyclass]
@@ -134,57 +138,52 @@ impl InputCapture {
 	    			}
 	    		}
 
-    			let internal_key_event: InternalKeyEvent = match key_event.code {
+    			let internal_key_event = match key_event.code {
     				KeyCode::Char(ch) => InternalKeyEvent::Char(Char { code: ch }),
     				KeyCode::F(n) => {
-   						let key = match n {
-							0 => Some(Key::F0),
-							1 => Some(Key::F1),
-							2 => Some(Key::F2),
-							3 => Some(Key::F3),
-							4 => Some(Key::F4),
-							5 => Some(Key::F5),
-							6 => Some(Key::F6),
-							7 => Some(Key::F7),
-							8 => Some(Key::F8),
-							9 => Some(Key::F9),
-							10 => Some(Key::F10),
-							11 => Some(Key::F11),
-							12 => Some(Key::F12),
-							13 => Some(Key::F13),
-							14 => Some(Key::F14),
-							15 => Some(Key::F15),
-							16 => Some(Key::F16),
-							17 => Some(Key::F17),
-							18 => Some(Key::F18),
-							19 => Some(Key::F19),
-							20 => Some(Key::F20),
-							21 => Some(Key::F21),
-							22 => Some(Key::F22),
-							23 => Some(Key::F23),
-							_ => None
-						};
-
-						match key {
-							Some(k) => InternalKeyEvent::Key(k),
-							None => InternalKeyEvent::None
+   						match n {
+							0 => key(Key::F0),
+							1 => key(Key::F1),
+							2 => key(Key::F2),
+							3 => key(Key::F3),
+							4 => key(Key::F4),
+							5 => key(Key::F5),
+							6 => key(Key::F6),
+							7 => key(Key::F7),
+							8 => key(Key::F8),
+							9 => key(Key::F9),
+							10 => key(Key::F10),
+							11 => key(Key::F11),
+							12 => key(Key::F12),
+							13 => key(Key::F13),
+							14 => key(Key::F14),
+							15 => key(Key::F15),
+							16 => key(Key::F16),
+							17 => key(Key::F17),
+							18 => key(Key::F18),
+							19 => key(Key::F19),
+							20 => key(Key::F20),
+							21 => key(Key::F21),
+							22 => key(Key::F22),
+							23 => key(Key::F23),
+							_ => InternalKeyEvent::None
 						}
     				},
-					KeyCode::Backspace => InternalKeyEvent::Key(Key::Backspace),
-					KeyCode::Enter => InternalKeyEvent::Key(Key::Enter),
-					KeyCode::Left => InternalKeyEvent::Key(Key::Left),
-					KeyCode::Right => InternalKeyEvent::Key(Key::Right),
-					KeyCode::Up => InternalKeyEvent::Key(Key::Up),
-					KeyCode::Down => InternalKeyEvent::Key(Key::Down),
-					KeyCode::Home => InternalKeyEvent::Key(Key::Home),
-					KeyCode::End => InternalKeyEvent::Key(Key::End),
-					KeyCode::PageUp => InternalKeyEvent::Key(Key::PageUp),
-					KeyCode::PageDown => InternalKeyEvent::Key(Key::PageDown),
-					KeyCode::Tab => InternalKeyEvent::Key(Key::Tab),
-					KeyCode::BackTab => InternalKeyEvent::Key(Key::BackTab),
-					KeyCode::Delete => InternalKeyEvent::Key(Key::Delete),
-					KeyCode::Insert => InternalKeyEvent::Key(Key::Insert),
-					KeyCode::Esc => InternalKeyEvent::Key(Key::Esc),
+					KeyCode::Backspace => key(Key::Backspace),
+					KeyCode::Enter => key(Key::Enter),
+					KeyCode::Left => key(Key::Left),
+					KeyCode::Right => key(Key::Right),
+					KeyCode::Up => key(Key::Up),
+					KeyCode::Down => key(Key::Down),
+					KeyCode::Home => key(Key::Home),
+					KeyCode::End => key(Key::End),
+					KeyCode::PageUp => key(Key::PageUp),
+					KeyCode::PageDown => key(Key::PageDown),
+					KeyCode::Tab => key(Key::Tab),
+					KeyCode::BackTab => key(Key::BackTab),
+					KeyCode::Delete => key(Key::Delete),
+					KeyCode::Insert => key(Key::Insert),
+					KeyCode::Esc => key(Key::Esc),
     				_ => InternalKeyEvent::None,
     			};
 
