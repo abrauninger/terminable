@@ -1,7 +1,7 @@
 # terminable
 Python library for cross-platform terminal input.
 
-- Tested on **Windows** and **macOS**, probably works on **Linux** (not tested yet)
+- Tested on **Windows**, **macOS**, and **Linux**
 - **Does not require root access**
 - Provides **keyboard**, **mouse**, and **terminal-resize** events
 - **Simple API** that you can plug into **your own event loop**
