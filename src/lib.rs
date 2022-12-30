@@ -1,5 +1,13 @@
 use crossterm::{
-	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers as KeyModifiersXT, MouseButton as MouseButtonXT, MouseEventKind},
+	event::{
+		DisableMouseCapture,
+		EnableMouseCapture,
+		Event,
+		KeyCode,
+		KeyModifiers as KeyModifiersXT,
+		MouseButton as MouseButtonXT,
+		MouseEventKind as MouseEventKindXT,
+	},
 	execute,
 	terminal,
 };
@@ -128,7 +136,10 @@ impl From<KeyModifiersXT> for KeyModifiers {
 
 #[pyclass]
 struct KeyEvent {
+	#[pyo3(get)]
 	code: PyObject,
+
+	#[pyo3(get)]
 	modifiers: KeyModifiers,
 }
 
@@ -140,27 +151,19 @@ impl KeyEvent {
 }
 
 #[pyclass]
+#[derive(Clone)]
 enum MouseButton {
-	Left,
-	Right,
-	Middle,
+	LEFT,
+	RIGHT,
+	MIDDLE,
 }
 
 #[pyclass]
-enum MouseButtonEventKind {
-	Down,
-	Up,
-	Drag,
-}
-
-#[pyclass]
-struct MouseButtonEvent {
-	kind: MouseButtonEventKind,
-	button: MouseButton,
-}
-
-#[pyclass]
-enum MouseOtherEventKind {
+#[derive(Clone)]
+enum MouseEventKind {
+	DOWN,
+	UP,
+	DRAG,
 	MOVED,
 	SCROLL_DOWN,
 	SCROLL_UP,
@@ -168,16 +171,31 @@ enum MouseOtherEventKind {
 
 #[pyclass]
 struct MouseEvent {
-	kind: PyObject,
+	#[pyo3(get)]
+	kind: MouseEventKind,
+
+	#[pyo3(get)]
+	button: Option<MouseButton>,
+
+	#[pyo3(get)]
 	column: u16,
+
+	#[pyo3(get)]
 	row: u16,
+
+	#[pyo3(get)]
 	modifiers: KeyModifiers
 }
 
 #[pymethods]
 impl MouseEvent {
 	fn __repr__(&self) -> String {
-		format!("MouseEvent({}, {}, {}, {})", self.kind, self.column, self.row, self.modifiers.__repr__())
+		let button_str = match &self.button {
+			Some(b) => b.__pyo3__repr__(),
+			None => "None"
+		};
+
+		format!("MouseEvent({}, {}, {}, {}, {})", self.kind.__pyo3__repr__(), button_str, self.column, self.row, self.modifiers.__repr__())
 	}
 }
 
@@ -185,11 +203,6 @@ enum InternalKeyCode {
 	Char(Char),
 	Key(Key),
 	None,
-}
-
-enum InternalMouseEventKind {
-	Button(MouseButtonEvent),
-	Other(MouseOtherEventKind),
 }
 
 fn key(k: Key) -> InternalKeyCode {
@@ -325,25 +338,22 @@ impl InputCapture {
     		Event::Mouse(mouse_event) => {
 	    		let modifiers = KeyModifiers::from(mouse_event.modifiers);
 
-    			let kind = match mouse_event.kind {
-    				MouseEventKind::Down(MouseButtonXT::Left) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Down, button: MouseButton::Left }),
-    				MouseEventKind::Down(MouseButtonXT::Right) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Down, button: MouseButton::Right }),
-    				MouseEventKind::Down(MouseButtonXT::Middle) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Down, button: MouseButton::Middle }),
-    				MouseEventKind::Up(MouseButtonXT::Left) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Up, button: MouseButton::Left }),
-    				MouseEventKind::Up(MouseButtonXT::Right) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Up, button: MouseButton::Right }),
-    				MouseEventKind::Up(MouseButtonXT::Middle) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Up, button: MouseButton::Middle }),
-    				MouseEventKind::Drag(MouseButtonXT::Left) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Drag, button: MouseButton::Left }),
-    				MouseEventKind::Drag(MouseButtonXT::Right) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Drag, button: MouseButton::Right }),
-    				MouseEventKind::Drag(MouseButtonXT::Middle) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Drag, button: MouseButton::Middle }),
-    				MouseEventKind::Moved => InternalMouseEventKind::Other(MouseOtherEventKind::MOVED),
-    				MouseEventKind::ScrollDown => InternalMouseEventKind::Other(MouseOtherEventKind::SCROLL_DOWN),
-    				MouseEventKind::ScrollUp => InternalMouseEventKind::Other(MouseOtherEventKind::SCROLL_UP),
+    			let (kind, button) = match mouse_event.kind {
+    				MouseEventKindXT::Down(MouseButtonXT::Left) => (MouseEventKind::DOWN, Some(MouseButton::LEFT)),
+    				MouseEventKindXT::Down(MouseButtonXT::Right) => (MouseEventKind::DOWN, Some(MouseButton::RIGHT)),
+    				MouseEventKindXT::Down(MouseButtonXT::Middle) => (MouseEventKind::DOWN, Some(MouseButton::MIDDLE)),
+    				MouseEventKindXT::Up(MouseButtonXT::Left) => (MouseEventKind::UP, Some(MouseButton::LEFT)),
+    				MouseEventKindXT::Up(MouseButtonXT::Right) => (MouseEventKind::UP, Some(MouseButton::RIGHT)),
+    				MouseEventKindXT::Up(MouseButtonXT::Middle) => (MouseEventKind::UP, Some(MouseButton::MIDDLE)),
+    				MouseEventKindXT::Drag(MouseButtonXT::Left) => (MouseEventKind::DRAG, Some(MouseButton::LEFT)),
+    				MouseEventKindXT::Drag(MouseButtonXT::Right) => (MouseEventKind::DRAG, Some(MouseButton::RIGHT)),
+    				MouseEventKindXT::Drag(MouseButtonXT::Middle) => (MouseEventKind::DRAG, Some(MouseButton::MIDDLE)),
+    				MouseEventKindXT::Moved => (MouseEventKind::MOVED, None),
+    				MouseEventKindXT::ScrollDown => (MouseEventKind::SCROLL_DOWN, None),
+    				MouseEventKindXT::ScrollUp => (MouseEventKind::SCROLL_UP, None),
     			};
 
-    			return match kind {
-    				InternalMouseEventKind::Button(event) => Ok(MouseEvent { kind: event.kind.into_py(py), column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py)),
-    				InternalMouseEventKind::Other(event) => Ok(MouseEvent { kind: event.into_py(py), column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py))
-    			}
+    			return Ok(MouseEvent { kind: kind, button: button, column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py));
     		}
     		Event::Resize(width, height) => println!("New size {}x{}\r", width, height),
 		}
