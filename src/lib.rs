@@ -1,5 +1,5 @@
 use crossterm::{
-	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyModifiers},
+	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
 	execute,
 	terminal,
 };
@@ -57,7 +57,6 @@ enum Key {
 	F22 = 286,
 	F23 = 287,
 	Esc = 361,
-	KeypadBegin = 354,
 }
 
 #[pyclass]
@@ -120,8 +119,6 @@ impl InputCapture {
 	}
 
 	fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-		let curses = PyModule::import(py, "curses");
-
 		match crossterm::event::read()? {
     		Event::Key(key_event) => {
     			if let KeyCode::Char('c') = key_event.code {
@@ -165,6 +162,21 @@ impl InputCapture {
 						};
 						return Ok(key.into_py(py))
     				},
+					KeyCode::Backspace => return Ok(Key::Backspace.into_py(py)),
+					KeyCode::Enter => return Ok(Key::Enter.into_py(py)),
+					KeyCode::Left => return Ok(Key::Left.into_py(py)),
+					KeyCode::Right => return Ok(Key::Right.into_py(py)),
+					KeyCode::Up => return Ok(Key::Up.into_py(py)),
+					KeyCode::Down => return Ok(Key::Down.into_py(py)),
+					KeyCode::Home => return Ok(Key::Home.into_py(py)),
+					KeyCode::End => return Ok(Key::End.into_py(py)),
+					KeyCode::PageUp => return Ok(Key::PageUp.into_py(py)),
+					KeyCode::PageDown => return Ok(Key::PageDown.into_py(py)),
+					KeyCode::Tab => return Ok(Key::Tab.into_py(py)),
+					KeyCode::BackTab => return Ok(Key::BackTab.into_py(py)),
+					KeyCode::Delete => return Ok(Key::Delete.into_py(py)),
+					KeyCode::Insert => return Ok(Key::Insert.into_py(py)),
+					KeyCode::Esc => return Ok(Key::Esc.into_py(py)),
     				_ => {
     					println!("Unhandled event: {:?}\r", key_event);
     				}
