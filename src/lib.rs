@@ -1,5 +1,5 @@
 use crossterm::{
-	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
+	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers as KeyModifiersXT, MouseEventKind},
 	execute,
 	terminal,
 };
@@ -70,7 +70,7 @@ enum Key {
 
 bitflags! {
 	#[pyclass]
-	struct Modifiers: u32 {
+	struct KeyModifiers: u32 {
 		const NONE = 0x00;
 		const SHIFT = 0x01;
 		const CONTROL = 0x02;
@@ -79,28 +79,28 @@ bitflags! {
 }
 
 #[pymethods]
-impl Modifiers {
+impl KeyModifiers {
 	fn __repr__(&self) -> String {
-		if *self == Modifiers::NONE {
-			"Modifiers.NONE".to_string()
+		if *self == KeyModifiers::NONE {
+			"KeyModifiers.NONE".to_string()
 		}
 		else {
 			let mut value = String::new();
 
-			if (*self & Modifiers::SHIFT) != Modifiers::NONE {
-				value.push_str("Modifiers.SHIFT");
+			if (*self & KeyModifiers::SHIFT) != KeyModifiers::NONE {
+				value.push_str("KeyModifiers.SHIFT");
 			}
-			if (*self & Modifiers::CONTROL) != Modifiers::NONE {
+			if (*self & KeyModifiers::CONTROL) != KeyModifiers::NONE {
 				if value.len() != 0 {
 					value.push_str(" | ");
 				}
-				value.push_str("Modifiers.CONTROL");
+				value.push_str("KeyModifiers.CONTROL");
 			}
-			if (*self & Modifiers::ALT) != Modifiers::NONE {
+			if (*self & KeyModifiers::ALT) != KeyModifiers::NONE {
 				if value.len() != 0 {
 					value.push_str(" | ");
 				}
-				value.push_str("Modifiers.ALT");
+				value.push_str("KeyModifiers.ALT");
 			}
 
 			value
@@ -108,10 +108,26 @@ impl Modifiers {
 	}
 }
 
+fn get_modifiers(from: &KeyModifiersXT) -> KeyModifiers {
+	let mut modifiers = KeyModifiers::NONE;
+
+	if (*from & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
+		modifiers |= KeyModifiers::SHIFT;
+	}
+	if (*from & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
+		modifiers |= KeyModifiers::CONTROL;
+	}
+	if (*from & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
+		modifiers |= KeyModifiers::ALT;
+	}
+
+	return modifiers;
+}
+
 #[pyclass]
 struct KeyEvent {
 	code: PyObject,
-	modifiers: Modifiers,
+	modifiers: KeyModifiers,
 }
 
 #[pymethods]
@@ -119,6 +135,41 @@ impl KeyEvent {
 	fn __repr__(&self) -> String {
 		format!("KeyEvent({}, {})", self.code, self.modifiers.__repr__())
 	}
+}
+
+#[pyclass]
+enum MouseButton {
+	Left,
+	Right,
+	Middle,
+}
+
+#[pyclass]
+enum MouseButtonEventKind {
+	Down,
+	Up,
+	Drag,
+}
+
+#[pyclass]
+struct MouseButtonEvent {
+	kind: MouseButtonEventKind,
+	button: MouseButton,
+}
+
+#[pyclass]
+enum MouseOtherEventKind {
+	Moved,
+	ScrollDown,
+	ScrollUp,
+}
+
+#[pyclass]
+struct MouseEvent {
+	kind: PyObject,
+	column: u16,
+	row: u16,
+	modifiers: KeyModifiers
 }
 
 enum InternalKeyCode {
@@ -194,23 +245,13 @@ impl InputCapture {
 		match crossterm::event::read()? {
     		Event::Key(key_event) => {
     			if let KeyCode::Char('c') = key_event.code {
-    				if key_event.modifiers == KeyModifiers::CONTROL {
+    				if key_event.modifiers == KeyModifiersXT::CONTROL {
 						self.raw_mode = None;
 						return Err(PyKeyboardInterrupt::new_err(""));
 	    			}
 	    		}
 
-	    		let mut modifiers = Modifiers::NONE;
-
-	    		if (key_event.modifiers & KeyModifiers::SHIFT) != KeyModifiers::NONE {
-	    			modifiers |= Modifiers::SHIFT;
-	    		}
-	    		if (key_event.modifiers & KeyModifiers::CONTROL) != KeyModifiers::NONE {
-	    			modifiers |= Modifiers::CONTROL;
-	    		}
-	    		if (key_event.modifiers & KeyModifiers::ALT) != KeyModifiers::NONE {
-	    			modifiers |= Modifiers::ALT;
-	    		}
+	    		let modifiers = get_modifiers(&key_event.modifiers);
 
     			let internal_key_event = match key_event.code {
     				KeyCode::Char(ch) => InternalKeyCode::Char(Char { code: ch }),
@@ -267,7 +308,14 @@ impl InputCapture {
     				InternalKeyCode::None => println!("Unrecognized event: {:?}\r", key_event),
     			}
     		},
-    		Event::Mouse(event) => println!("{:?}\r", event),
+    		Event::Mouse(mouse_event) => {
+    			let kind = match mouse_event.kind {
+    				MouseEventKind::ScrollDown => {
+    					Some(MouseOtherEventKind::ScrollDown)
+    				},
+    				_ => None
+    			};
+    		}
     		Event::Resize(width, height) => println!("New size {}x{}\r", width, height),
 		}
 
