@@ -8,30 +8,39 @@ use pyo3::exceptions::{PyKeyboardInterrupt};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 
+use bitflags::bitflags;
+
 #[pyclass]
 struct Char {
 	#[pyo3(get)]
 	code: char
 }
 
+#[pymethods]
+impl Char {
+	fn __repr__(&self) -> String {
+		format!("Char({})", self.code)
+	}
+}
+
 // A flattened version of crossterm::event::KeyCode
 // Key codes match https://blessed.readthedocs.io/en/latest/keyboard.html
 #[pyclass]
 enum Key {
-	Backspace = 263,
-	Enter = 343,
-	Left = 260,
-	Right = 261,
-	Up = 259,
-	Down = 258,
-	Home = 262,
-	End = 360,
-	PageUp = 339,
-	PageDown = 338,
-	Tab = 512,
-	BackTab = 353,
-	Delete = 330,
-	Insert = 331,
+	BACKSPACE = 263,
+	ENTER = 343,
+	LEFT = 260,
+	RIGHT = 261,
+	UP = 259,
+	DOWN = 258,
+	HOME = 262,
+	END = 360,
+	PAGEUP = 339,
+	PAGEDOWN = 338,
+	TAB = 512,
+	BACKTAB = 353,
+	DELETE = 330,
+	INSERT = 331,
 	F0 = 264,
 	F1 = 265,
 	F2 = 266,
@@ -56,17 +65,70 @@ enum Key {
 	F21 = 285,
 	F22 = 286,
 	F23 = 287,
-	Esc = 361,
+	ESC = 361,
 }
 
-enum InternalKeyEvent {
+bitflags! {
+	#[pyclass]
+	struct Modifiers: u32 {
+		const NONE = 0x00;
+		const SHIFT = 0x01;
+		const CONTROL = 0x02;
+		const ALT = 0x04;
+	}
+}
+
+#[pymethods]
+impl Modifiers {
+	fn __repr__(&self) -> String {
+		if *self == Modifiers::NONE {
+			"Modifiers.NONE".to_string()
+		}
+		else {
+			let mut value = String::new();
+
+			if (*self & Modifiers::SHIFT) != Modifiers::NONE {
+				value.push_str("Modifiers.SHIFT");
+			}
+			if (*self & Modifiers::CONTROL) != Modifiers::NONE {
+				if value.len() != 0 {
+					value.push_str(" | ");
+				}
+				value.push_str("Modifiers.CONTROL");
+			}
+			if (*self & Modifiers::ALT) != Modifiers::NONE {
+				if value.len() != 0 {
+					value.push_str(" | ");
+				}
+				value.push_str("Modifiers.ALT");
+			}
+
+			value
+		}
+	}
+}
+
+#[pyclass]
+struct KeyEvent {
+	code: PyObject,
+	modifiers: Modifiers,
+}
+
+#[pymethods]
+impl KeyEvent {
+	fn __repr__(&self) -> String {
+		format!("KeyEvent({}, {})", self.code, self.modifiers.__repr__())
+	}
+}
+
+enum InternalKeyCode {
 	Char(Char),
 	Key(Key),
 	None,
 }
 
-fn key(k: Key) -> InternalKeyEvent {
-	return InternalKeyEvent::Key(k)
+fn key(k: Key) -> InternalKeyCode {
+	return InternalKeyCode::Key(k)
 }
 
 #[pyclass]
@@ -138,8 +200,20 @@ impl InputCapture {
 	    			}
 	    		}
 
+	    		let mut modifiers = Modifiers::NONE;
+
+	    		if (key_event.modifiers & KeyModifiers::SHIFT) != KeyModifiers::NONE {
+	    			modifiers |= Modifiers::SHIFT;
+	    		}
+	    		if (key_event.modifiers & KeyModifiers::CONTROL) != KeyModifiers::NONE {
+	    			modifiers |= Modifiers::CONTROL;
+	    		}
+	    		if (key_event.modifiers & KeyModifiers::ALT) != KeyModifiers::NONE {
+	    			modifiers |= Modifiers::ALT;
+	    		}
+
     			let internal_key_event = match key_event.code {
-    				KeyCode::Char(ch) => InternalKeyEvent::Char(Char { code: ch }),
+    				KeyCode::Char(ch) => InternalKeyCode::Char(Char { code: ch }),
     				KeyCode::F(n) => {
    						match n {
 							0 => key(Key::F0),
@@ -166,31 +240,31 @@ impl InputCapture {
 							21 => key(Key::F21),
 							22 => key(Key::F22),
 							23 => key(Key::F23),
-							_ => InternalKeyEvent::None
+							_ => InternalKeyCode::None
 						}
     				},
-					KeyCode::Backspace => key(Key::Backspace),
-					KeyCode::Enter => key(Key::Enter),
-					KeyCode::Left => key(Key::Left),
-					KeyCode::Right => key(Key::Right),
-					KeyCode::Up => key(Key::Up),
-					KeyCode::Down => key(Key::Down),
-					KeyCode::Home => key(Key::Home),
-					KeyCode::End => key(Key::End),
-					KeyCode::PageUp => key(Key::PageUp),
-					KeyCode::PageDown => key(Key::PageDown),
-					KeyCode::Tab => key(Key::Tab),
-					KeyCode::BackTab => key(Key::BackTab),
-					KeyCode::Delete => key(Key::Delete),
-					KeyCode::Insert => key(Key::Insert),
-					KeyCode::Esc => key(Key::Esc),
-    				_ => InternalKeyEvent::None,
+					KeyCode::Backspace => key(Key::BACKSPACE),
+					KeyCode::Enter => key(Key::ENTER),
+					KeyCode::Left => key(Key::LEFT),
+					KeyCode::Right => key(Key::RIGHT),
+					KeyCode::Up => key(Key::UP),
+					KeyCode::Down => key(Key::DOWN),
+					KeyCode::Home => key(Key::HOME),
+					KeyCode::End => key(Key::END),
+					KeyCode::PageUp => key(Key::PAGEUP),
+					KeyCode::PageDown => key(Key::PAGEDOWN),
+					KeyCode::Tab => key(Key::TAB),
+					KeyCode::BackTab => key(Key::BACKTAB),
+					KeyCode::Delete => key(Key::DELETE),
+					KeyCode::Insert => key(Key::INSERT),
+					KeyCode::Esc => key(Key::ESC),
+    				_ => InternalKeyCode::None,
     			};
 
     			match internal_key_event {
-    				InternalKeyEvent::Char(ch) => return Ok(ch.into_py(py)),
-    				InternalKeyEvent::Key(k) => return Ok(k.into_py(py)),
-    				InternalKeyEvent::None => println!("Unrecognized event: {:?}\r", key_event),
+    				InternalKeyCode::Char(ch) => return Ok(KeyEvent { code: ch.into_py(py), modifiers }.into_py(py)),
+    				InternalKeyCode::Key(k) => return Ok(KeyEvent { code: k.into_py(py), modifiers }.into_py(py)),
+    				InternalKeyCode::None => println!("Unrecognized event: {:?}\r", key_event),
     			}
     		},
     		Event::Mouse(event) => println!("{:?}\r", event),
