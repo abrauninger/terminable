@@ -9,6 +9,12 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 
 #[pyclass]
+struct Char {
+	#[pyo3(get)]
+	code: char
+}
+
+#[pyclass]
 struct ReadComplete {
 }
 
@@ -75,7 +81,16 @@ impl InputCapture {
     					self.mode = None;
     					return Err(PyKeyboardInterrupt::new_err(""));
     				}
-    				_ => println!("{:?}\r", event)
+    				_ => {
+    					println!("{:?}\r", event);
+
+    					match event {
+    						KeyEvent { code: KeyCode::Char(ch), .. } => {
+    							return Ok(Char { code: ch }.into_py(py))
+    						},
+    						_ => ()
+    					}
+    				}
     			}
     		},
     		Event::Mouse(event) => println!("{:?}\r", event),
@@ -100,7 +115,7 @@ fn capture() -> InputCapture {
 /// A Python module implemented in Rust.
 #[pymodule]
 fn terminal_input(_py: Python, m: &PyModule) -> PyResult<()> {
-	m.add_class::<ReadComplete>()?;
+	m.add_class::<Char>()?;
     m.add_class::<InputCapture>()?;
     m.add_function(wrap_pyfunction!(capture, m)?)?;
     Ok(())
