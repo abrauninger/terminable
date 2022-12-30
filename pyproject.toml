@@ -11,4 +11,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
-
+[project.urls]
+"Homepage" = "https://github.com/abrauninger/terminable"
+"Bug Tracker" = "https://github.com/abrauninger/terminable/issues"
