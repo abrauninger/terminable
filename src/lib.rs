@@ -59,6 +59,12 @@ enum Key {
 	Esc = 361,
 }
 
+enum InternalKeyEvent {
+	Char(Char),
+	Key(Key),
+	None,
+}
+
 #[pyclass]
 struct ReadComplete {
 }
@@ -128,58 +134,64 @@ impl InputCapture {
 	    			}
 	    		}
 
-    			match key_event.code {
-    				KeyCode::Char(ch) => return Ok(Char { code: ch }.into_py(py)),
+    			let internal_key_event: InternalKeyEvent = match key_event.code {
+    				KeyCode::Char(ch) => InternalKeyEvent::Char(Char { code: ch }),
     				KeyCode::F(n) => {
    						let key = match n {
-							0 => Key::F0,
-							1 => Key::F1,
-							2 => Key::F2,
-							3 => Key::F3,
-							4 => Key::F4,
-							5 => Key::F5,
-							6 => Key::F6,
-							7 => Key::F7,
-							8 => Key::F8,
-							9 => Key::F9,
-							10 => Key::F10,
-							11 => Key::F11,
-							12 => Key::F12,
-							13 => Key::F13,
-							14 => Key::F14,
-							15 => Key::F15,
-							16 => Key::F16,
-							17 => Key::F17,
-							18 => Key::F18,
-							19 => Key::F19,
-							20 => Key::F20,
-							21 => Key::F21,
-							22 => Key::F22,
-							23 => Key::F23,
-							_ => {
-								return Err(PyException::new_err("Unrecognized function key"));
-							}
+							0 => Some(Key::F0),
+							1 => Some(Key::F1),
+							2 => Some(Key::F2),
+							3 => Some(Key::F3),
+							4 => Some(Key::F4),
+							5 => Some(Key::F5),
+							6 => Some(Key::F6),
+							7 => Some(Key::F7),
+							8 => Some(Key::F8),
+							9 => Some(Key::F9),
+							10 => Some(Key::F10),
+							11 => Some(Key::F11),
+							12 => Some(Key::F12),
+							13 => Some(Key::F13),
+							14 => Some(Key::F14),
+							15 => Some(Key::F15),
+							16 => Some(Key::F16),
+							17 => Some(Key::F17),
+							18 => Some(Key::F18),
+							19 => Some(Key::F19),
+							20 => Some(Key::F20),
+							21 => Some(Key::F21),
+							22 => Some(Key::F22),
+							23 => Some(Key::F23),
+							_ => None
 						};
-						return Ok(key.into_py(py))
+
+						match key {
+							Some(k) => InternalKeyEvent::Key(k),
+							None => InternalKeyEvent::None
+						}
     				},
-					KeyCode::Backspace => return Ok(Key::Backspace.into_py(py)),
-					KeyCode::Enter => return Ok(Key::Enter.into_py(py)),
-					KeyCode::Left => return Ok(Key::Left.into_py(py)),
-					KeyCode::Right => return Ok(Key::Right.into_py(py)),
-					KeyCode::Up => return Ok(Key::Up.into_py(py)),
-					KeyCode::Down => return Ok(Key::Down.into_py(py)),
-					KeyCode::Home => return Ok(Key::Home.into_py(py)),
-					KeyCode::End => return Ok(Key::End.into_py(py)),
-					KeyCode::PageUp => return Ok(Key::PageUp.into_py(py)),
-					KeyCode::PageDown => return Ok(Key::PageDown.into_py(py)),
-					KeyCode::Tab => return Ok(Key::Tab.into_py(py)),
-					KeyCode::BackTab => return Ok(Key::BackTab.into_py(py)),
-					KeyCode::Delete => return Ok(Key::Delete.into_py(py)),
-					KeyCode::Insert => return Ok(Key::Insert.into_py(py)),
-					KeyCode::Esc => return Ok(Key::Esc.into_py(py)),
-    				_ => {
-    					println!("Unhandled event: {:?}\r", key_event);
-    				}
+					KeyCode::Backspace => InternalKeyEvent::Key(Key::Backspace),
+					KeyCode::Enter => InternalKeyEvent::Key(Key::Enter),
+					KeyCode::Left => InternalKeyEvent::Key(Key::Left),
+					KeyCode::Right => InternalKeyEvent::Key(Key::Right),
+					KeyCode::Up => InternalKeyEvent::Key(Key::Up),
+					KeyCode::Down => InternalKeyEvent::Key(Key::Down),
+					KeyCode::Home => InternalKeyEvent::Key(Key::Home),
+					KeyCode::End => InternalKeyEvent::Key(Key::End),
+					KeyCode::PageUp => InternalKeyEvent::Key(Key::PageUp),
+					KeyCode::PageDown => InternalKeyEvent::Key(Key::PageDown),
+					KeyCode::Tab => InternalKeyEvent::Key(Key::Tab),
+					KeyCode::BackTab => InternalKeyEvent::Key(Key::BackTab),
+					KeyCode::Delete => InternalKeyEvent::Key(Key::Delete),
+					KeyCode::Insert => InternalKeyEvent::Key(Key::Insert),
+					KeyCode::Esc => InternalKeyEvent::Key(Key::Esc),
+    				_ => InternalKeyEvent::None,
+    			};
+
+    			match internal_key_event {
+    				InternalKeyEvent::Char(ch) => return Ok(ch.into_py(py)),
+    				InternalKeyEvent::Key(k) => return Ok(k.into_py(py)),
+    				InternalKeyEvent::None => println!("Unrecognized event: {:?}\r", key_event),
     			}
     		},
     		Event::Mouse(event) => println!("{:?}\r", event),
