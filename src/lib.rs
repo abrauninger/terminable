@@ -12,7 +12,7 @@ use crossterm::{
 	terminal,
 };
 
-use pyo3::exceptions::{PyKeyboardInterrupt};
+use pyo3::exceptions::{PyException, PyKeyboardInterrupt};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 
@@ -225,16 +225,11 @@ fn key(k: Key) -> InternalKeyCode {
 	return InternalKeyCode::Key(k)
 }
 
-#[pyclass]
-struct ReadComplete {
-}
-
 struct RawMode {
 }
 
 impl RawMode {
 	fn new() -> Self {
-		println!("enable_raw_mode");
 		terminal::enable_raw_mode().unwrap();
 
 		execute!(
@@ -254,8 +249,6 @@ impl Drop for RawMode {
 	    ).unwrap();
 
 		terminal::disable_raw_mode().unwrap();
-
-		println!("disable_raw_mode");
 	}
 }
 
@@ -268,7 +261,6 @@ struct InputCapture {
 impl InputCapture {
 	#[new]
 	fn new() -> Self {
-		println!("Creating a InputCapture object");
 		InputCapture { raw_mode: Some(RawMode::new()) }
 	}
 
@@ -348,7 +340,7 @@ impl InputCapture {
     			match internal_key_event {
     				InternalKeyCode::Char(ch) => return Ok(KeyEvent { code: ch.into_py(py), modifiers }.into_py(py)),
     				InternalKeyCode::Key(k) => return Ok(KeyEvent { code: k.into_py(py), modifiers }.into_py(py)),
-    				InternalKeyCode::None => println!("Unrecognized event: {:?}\r", key_event),
+    				InternalKeyCode::None => return Err(PyException::new_err("Unrecognized keyboard event"))
     			}
     		},
     		Event::Mouse(mouse_event) => {
@@ -373,14 +365,6 @@ impl InputCapture {
     		}
     		Event::Resize(columns, rows) => return Ok(ResizeEvent { columns: columns, rows: rows }.into_py(py)),
 		}
-
-		Ok(ReadComplete {}.into_py(py))
-	}
-}
-
-impl Drop for InputCapture {
-	fn drop(&mut self) {
-		println!("Destroying a InputCapture object");
 	}
 }
 
