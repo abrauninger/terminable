@@ -1,7 +1,7 @@
-import terminal_input
+import terminable
 
-with terminal_input.capture() as input_capture:
+with terminable.capture_input() as terminal_input:
 	while True:
-		returned_value = input_capture.read()
+		returned_value = terminal_input.read()
 
 		print(f"Input received: {returned_value}\r")

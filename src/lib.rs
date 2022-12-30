@@ -370,12 +370,12 @@ impl InputCapture {
 }
 
 #[pyfunction]
-fn capture() -> InputCapture {
+fn capture_input() -> InputCapture {
 	return InputCapture::new();
 }
 
 #[pymodule]
-fn terminal_input(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(capture, m)?)?;
+fn terminable(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(capture_input, m)?)?;
     Ok(())
 }
