@@ -1,6 +1,12 @@
 # terminable
 Python library for cross-platform terminal input.
 
+- Tested on **Windows** and **macOS**, probably works on **Linux** (not tested yet)
+- **Does not require root access**
+- Provides **keyboard**, **mouse**, and **terminal-resize** events
+- **Simple API** that you can plug into **your own event loop**
+- **Does not require a full-screen terminal app** or separate window
+
 ## Install
 ```
 python3 -m pip install terminable
@@ -45,22 +51,26 @@ Input received: ResizeEvent(95, 31)
 ```
 
 ## Types of input
-- Keyboard
+- **Keyboard**
   - Characters
   - Arrow keys
   - Function keys
   - Enter, Esc, Backspace, etc.
   - Modifiers: `CONTROL`, `SHIFT`, `ALT`, etc.
-- Mouse
+- **Mouse**
   - Move
   - Down
   - Up
   - Drag
-- Terminal resize
+  - Scroll (scroll wheel, trackpad scroll gestures)
+- **Resize** of terminal window
 
 
 ## Implementation
-`terminable` is a thin Python wrapper around the excellent [crossterm](https://github.com/crossterm-rs/crossterm) Rust library.
+`terminable` is a thin Python wrapper around the excellent [`crossterm`](https://github.com/crossterm-rs/crossterm) Rust library.
+
+`crossterm` does all the heavy lifting.  `terminable` exposes a small subset of `crossterm` functionality to Python using [`PyO3`](https://docs.rs/pyo3/latest/pyo3/).
+
 
 ## API
 
@@ -85,7 +95,7 @@ When the `InputCapture` object is destroyed, the terminal exits raw mode.
 ### `read`
 `InputCapture` has a single function:
 ```
-def read(self) -> KeyEvent | MouseEvent | ResizeEvent :
+def read(self) -> KeyEvent | MouseEvent | ResizeEvent:
     ...
 ```
 
@@ -93,3 +103,16 @@ def read(self) -> KeyEvent | MouseEvent | ResizeEvent :
 
 ### `Ctrl+C`
 `terminable` raises a `KeyboardInterrupt` exception on `Ctrl+C`.
+
+## Comparison with other libraries
+
+There are other existing libraries for getting terminal input in Python, but each of them have their limitations:
+
+- [`curses`](https://docs.python.org/3/howto/curses.html) is not supported on Windows and requires a the terminal app to be full screen
+- [`termios`](https://docs.python.org/3/library/termios.html) is not supported on Windows
+- [`UniCurses`](https://pypi.org/project/UniCurses/) is a cross-platform implementation of `curses`, but it is no longer maintained and [users have reported issues on Windows](http://sourceforge.net/apps/wordpress/pyunicurses/)
+- [`pygame`](https://pypi.org/project/pygame/) provides comprehensive input functionality, but it requires a separate graphical window and is [not well-suited for terminal input](https://stackoverflow.com/a/9816039)
+- [`keyboard`](https://pypi.org/project/keyboard/) [requires root access](https://stackoverflow.com/a/54044833) on some platforms
+- [`pynput`](https://pypi.org/project/pynput/) [requires root access](https://pynput.readthedocs.io/en/latest/limitations.html) on some platforms
+- [`textual`](https://pypi.org/project/textual/) has good cross-platform input handling in a terminal app, but it is tightly coupled with the `textual` application model; you have to let `textual` run your event loop, for example.
+- [`blessed`](https://pypi.org/project/blessed/) has excellent cross-platform **keyboard** input functionality that is easy to use in your own event loop, but `blessed` does not support **mouse** input.
