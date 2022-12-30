@@ -1,5 +1,5 @@
 use crossterm::{
-	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers as KeyModifiersXT, MouseEventKind},
+	event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers as KeyModifiersXT, MouseButton as MouseButtonXT, MouseEventKind},
 	execute,
 	terminal,
 };
@@ -108,20 +108,22 @@ impl KeyModifiers {
 	}
 }
 
-fn get_modifiers(from: &KeyModifiersXT) -> KeyModifiers {
-	let mut modifiers = KeyModifiers::NONE;
+impl From<KeyModifiersXT> for KeyModifiers {
+	fn from(modifiers_xt: KeyModifiersXT) -> KeyModifiers {
+		let mut modifiers = KeyModifiers::NONE;
 
-	if (*from & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
-		modifiers |= KeyModifiers::SHIFT;
-	}
-	if (*from & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
-		modifiers |= KeyModifiers::CONTROL;
-	}
-	if (*from & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
-		modifiers |= KeyModifiers::ALT;
-	}
+		if (modifiers_xt & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
+			modifiers |= KeyModifiers::SHIFT;
+		}
+		if (modifiers_xt & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
+			modifiers |= KeyModifiers::CONTROL;
+		}
+		if (modifiers_xt & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
+			modifiers |= KeyModifiers::ALT;
+		}
 
-	return modifiers;
+		return modifiers;
+	}
 }
 
 #[pyclass]
@@ -159,9 +161,9 @@ struct MouseButtonEvent {
 
 #[pyclass]
 enum MouseOtherEventKind {
-	Moved,
-	ScrollDown,
-	ScrollUp,
+	MOVED,
+	SCROLL_DOWN,
+	SCROLL_UP,
 }
 
 #[pyclass]
@@ -172,10 +174,22 @@ struct MouseEvent {
 	modifiers: KeyModifiers
 }
 
+#[pymethods]
+impl MouseEvent {
+	fn __repr__(&self) -> String {
+		format!("MouseEvent({}, {}, {}, {})", self.kind, self.column, self.row, self.modifiers.__repr__())
+	}
+}
+
 enum InternalKeyCode {
 	Char(Char),
 	Key(Key),
 	None,
+}
+
+enum InternalMouseEventKind {
+	Button(MouseButtonEvent),
+	Other(MouseOtherEventKind),
 }
 
 fn key(k: Key) -> InternalKeyCode {
@@ -251,7 +265,7 @@ impl InputCapture {
 	    			}
 	    		}
 
-	    		let modifiers = get_modifiers(&key_event.modifiers);
+	    		let modifiers = KeyModifiers::from(key_event.modifiers);
 
     			let internal_key_event = match key_event.code {
     				KeyCode::Char(ch) => InternalKeyCode::Char(Char { code: ch }),
@@ -309,12 +323,27 @@ impl InputCapture {
     			}
     		},
     		Event::Mouse(mouse_event) => {
+	    		let modifiers = KeyModifiers::from(mouse_event.modifiers);
+
     			let kind = match mouse_event.kind {
-    				MouseEventKind::ScrollDown => {
-    					Some(MouseOtherEventKind::ScrollDown)
-    				},
-    				_ => None
+    				MouseEventKind::Down(MouseButtonXT::Left) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Down, button: MouseButton::Left }),
+    				MouseEventKind::Down(MouseButtonXT::Right) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Down, button: MouseButton::Right }),
+    				MouseEventKind::Down(MouseButtonXT::Middle) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Down, button: MouseButton::Middle }),
+    				MouseEventKind::Up(MouseButtonXT::Left) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Up, button: MouseButton::Left }),
+    				MouseEventKind::Up(MouseButtonXT::Right) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Up, button: MouseButton::Right }),
+    				MouseEventKind::Up(MouseButtonXT::Middle) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Up, button: MouseButton::Middle }),
+    				MouseEventKind::Drag(MouseButtonXT::Left) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Drag, button: MouseButton::Left }),
+    				MouseEventKind::Drag(MouseButtonXT::Right) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Drag, button: MouseButton::Right }),
+    				MouseEventKind::Drag(MouseButtonXT::Middle) => InternalMouseEventKind::Button(MouseButtonEvent { kind: MouseButtonEventKind::Drag, button: MouseButton::Middle }),
+    				MouseEventKind::Moved => InternalMouseEventKind::Other(MouseOtherEventKind::MOVED),
+    				MouseEventKind::ScrollDown => InternalMouseEventKind::Other(MouseOtherEventKind::SCROLL_DOWN),
+    				MouseEventKind::ScrollUp => InternalMouseEventKind::Other(MouseOtherEventKind::SCROLL_UP),
     			};
+
+    			return match kind {
+    				InternalMouseEventKind::Button(event) => Ok(MouseEvent { kind: event.kind.into_py(py), column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py)),
+    				InternalMouseEventKind::Other(event) => Ok(MouseEvent { kind: event.into_py(py), column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py))
+    			}
     		}
     		Event::Resize(width, height) => println!("New size {}x{}\r", width, height),
 		}
