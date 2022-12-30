@@ -8,6 +8,10 @@ use pyo3::exceptions::PyKeyboardInterrupt;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 
+#[pyclass]
+struct ReadComplete {
+}
+
 struct RawMode {
 }
 
@@ -63,8 +67,7 @@ impl InputCapture {
 		Ok(false)
 	}
 
-	// TODO: Rename?  'listen'?
-	fn read(&mut self) -> PyResult<()> {
+	fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
 		match crossterm::event::read()? {
     		Event::Key(event) => {
     			match event {
@@ -79,7 +82,7 @@ impl InputCapture {
     		Event::Resize(width, height) => println!("New size {}x{}\r", width, height),
 		}
 
-		Ok(())
+		Ok(ReadComplete {}.into_py(py))
 	}
 }
 
@@ -97,6 +100,7 @@ fn capture() -> InputCapture {
 /// A Python module implemented in Rust.
 #[pymodule]
 fn terminal_input(_py: Python, m: &PyModule) -> PyResult<()> {
+	m.add_class::<ReadComplete>()?;
     m.add_class::<InputCapture>()?;
     m.add_function(wrap_pyfunction!(capture, m)?)?;
     Ok(())
