@@ -199,6 +199,22 @@ impl MouseEvent {
 	}
 }
 
+#[pyclass]
+struct ResizeEvent {
+	#[pyo3(get)]
+	columns: u16,
+
+	#[pyo3(get)]
+	rows: u16,
+}
+
+#[pymethods]
+impl ResizeEvent {
+	fn __repr__(&self) -> String {
+		format!("ResizeEvent({}, {})", self.columns, self.rows)
+	}
+}
+
 enum InternalKeyCode {
 	Char(Char),
 	Key(Key),
@@ -355,7 +371,7 @@ impl InputCapture {
 
     			return Ok(MouseEvent { kind: kind, button: button, column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py));
     		}
-    		Event::Resize(width, height) => println!("New size {}x{}\r", width, height),
+    		Event::Resize(columns, rows) => return Ok(ResizeEvent { columns: columns, rows: rows }.into_py(py)),
 		}
 
 		Ok(ReadComplete {}.into_py(py))
