@@ -160,6 +160,7 @@ enum MouseButton {
 
 #[pyclass]
 #[derive(Clone)]
+#[allow(non_camel_case_types)]
 enum MouseEventKind {
 	DOWN,
 	UP,
@@ -373,11 +374,8 @@ fn capture() -> InputCapture {
 	return InputCapture::new();
 }
 
-/// A Python module implemented in Rust.
 #[pymodule]
 fn terminal_input(_py: Python, m: &PyModule) -> PyResult<()> {
-	m.add_class::<Char>()?;
-    m.add_class::<InputCapture>()?;
     m.add_function(wrap_pyfunction!(capture, m)?)?;
     Ok(())
 }
