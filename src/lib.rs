@@ -29,6 +29,11 @@ impl Char {
 	fn __repr__(&self) -> String {
 		format!("Char({})", self.code)
 	}
+
+	#[classattr]
+	fn __match_args__() -> (String,) {
+		("code".to_string(),)
+	}
 }
 
 // A flattened version of crossterm::event::KeyCode
@@ -254,15 +259,15 @@ impl Drop for RawMode {
 }
 
 #[pyclass]
-struct InputCapture {
+struct TerminalInput {
 	raw_mode: Option<RawMode>,
 }
 
 #[pymethods]
-impl InputCapture {
+impl TerminalInput {
 	#[new]
 	fn new() -> Self {
-		InputCapture { raw_mode: Some(RawMode::new()) }
+		TerminalInput { raw_mode: Some(RawMode::new()) }
 	}
 
 	fn __enter__(slf: Py<Self>) -> Py<Self> {
@@ -370,12 +375,21 @@ impl InputCapture {
 }
 
 #[pyfunction]
-fn capture_input() -> InputCapture {
-	return InputCapture::new();
+fn capture_input() -> TerminalInput {
+	return TerminalInput::new();
 }
 
 #[pymodule]
 fn terminable(_py: Python, m: &PyModule) -> PyResult<()> {
+	m.add_class::<Char>()?;
+	m.add_class::<Key>()?;
+	m.add_class::<KeyModifiers>()?;
+	m.add_class::<KeyEvent>()?;
+	m.add_class::<MouseButton>()?;
+	m.add_class::<MouseEventKind>()?;
+	m.add_class::<MouseEvent>()?;
+	m.add_class::<ResizeEvent>()?;
+	m.add_class::<TerminalInput>()?;
     m.add_function(wrap_pyfunction!(capture_input, m)?)?;
     Ok(())
 }
