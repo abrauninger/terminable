@@ -1,5 +1,7 @@
 
 class Char:
+	__match_args__ = ('code')
+	
 	code: str
 
 class Key:
@@ -77,11 +79,11 @@ class ResizeEvent:
 	columns: int
 	rows: int
 
-class InputCapture:
-	def __enter__(self) -> InputCapture: ...
+class TerminalInput:
+	def __enter__(self) -> TerminalInput: ...
 
 	def __exit__(self, exc_type, exc_value, traceback): ...
 	
 	def read(self) -> KeyEvent | MouseEvent | ResizeEvent: ...
 
-def capture_input() -> InputCapture: ...
+def capture_input() -> TerminalInput: ...
