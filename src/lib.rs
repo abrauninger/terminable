@@ -73,10 +73,14 @@ fn get_modifiers_u8_from_xt(modifiers_xt: KeyModifiersXT, ti: &TerminalInput) ->
     return modifiers;
 }
 
-fn get_modifiers_from_xt(py: Python<'_>, module: &PyModule, modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> PyResult<PyObject> {
-    let modifiers = module.getattr("KeyModifiers")?;
-    let u8_value = get_modifiers_u8_from_xt(modifiers_xt, ti);
-    return Ok(modifiers.call1((u8_value,))?.to_object(py));
+fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> String {
+    let modifiers = get_modifiers_u8_from_xt(modifiers_xt, ti);
+    
+    if modifiers == 0 {
+        "None".to_string()
+    } else {
+        format!("terminable.KeyModifiers({})", modifiers)
+    }
 }
 
 
@@ -120,13 +124,7 @@ impl TerminalInput {
                     }
                 }
 
-                let modifiers = get_modifiers_u8_from_xt(key_event.modifiers, self);
-                let modifiers_expr =
-                    if modifiers == 0 {
-                        "None".to_string()
-                    } else {
-                        format!("terminable.KeyModifiers({})", modifiers)
-                    };
+                let modifiers_expr = get_modifiers_expr(key_event.modifiers, self);
 
                 let code_expr = match key_event.code {
                     KeyCode::Char(ch) => Ok(format!("Char('{}')", ch)),
@@ -150,31 +148,40 @@ impl TerminalInput {
                 }?;
 
                 let event_expr = format!("terminable.KeyEvent(code=terminable.{}, modifiers={})", code_expr, modifiers_expr);
-                return Ok(py.eval(event_expr.as_str(), None, None)?.to_object(py));
+                return Ok(py.eval(&event_expr, None, None)?.to_object(py));
             },
-            // Event::Mouse(mouse_event) => {
-            //     let modifiers = get_modifiers_from_xt(py, module, mouse_event.modifiers, self)?;
+            Event::Mouse(mouse_event) => {
+                let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, self);
 
-            //     let (kind, button) = match mouse_event.kind {
-            //         MouseEventKindXT::Down(MouseButtonXT::Left) => (MouseEventKind::DOWN, Some(MouseButton::LEFT)),
-            //         MouseEventKindXT::Down(MouseButtonXT::Right) => (MouseEventKind::DOWN, Some(MouseButton::RIGHT)),
-            //         MouseEventKindXT::Down(MouseButtonXT::Middle) => (MouseEventKind::DOWN, Some(MouseButton::MIDDLE)),
-            //         MouseEventKindXT::Up(MouseButtonXT::Left) => (MouseEventKind::UP, Some(MouseButton::LEFT)),
-            //         MouseEventKindXT::Up(MouseButtonXT::Right) => (MouseEventKind::UP, Some(MouseButton::RIGHT)),
-            //         MouseEventKindXT::Up(MouseButtonXT::Middle) => (MouseEventKind::UP, Some(MouseButton::MIDDLE)),
-            //         MouseEventKindXT::Drag(MouseButtonXT::Left) => (MouseEventKind::DRAG, Some(MouseButton::LEFT)),
-            //         MouseEventKindXT::Drag(MouseButtonXT::Right) => (MouseEventKind::DRAG, Some(MouseButton::RIGHT)),
-            //         MouseEventKindXT::Drag(MouseButtonXT::Middle) => (MouseEventKind::DRAG, Some(MouseButton::MIDDLE)),
-            //         MouseEventKindXT::Moved => (MouseEventKind::MOVED, None),
-            //         MouseEventKindXT::ScrollDown => (MouseEventKind::SCROLL_DOWN, None),
-            //         MouseEventKindXT::ScrollUp => (MouseEventKind::SCROLL_UP, None),
-            //     };
+                let (kind_expr, button_expr) = match mouse_event.kind {
+                    MouseEventKindXT::Down(MouseButtonXT::Left) => ("MouseEventKind.DOWN", "terminable.MouseButton.LEFT"),
+                    MouseEventKindXT::Down(MouseButtonXT::Right) => ("MouseEventKind.DOWN", "terminable.MouseButton.RIGHT"),
+                    MouseEventKindXT::Down(MouseButtonXT::Middle) => ("MouseEventKind.DOWN", "terminable.MouseButton.MIDDLE"),
+                    MouseEventKindXT::Up(MouseButtonXT::Left) => ("MouseEventKind.UP", "terminable.MouseButton.LEFT"),
+                    MouseEventKindXT::Up(MouseButtonXT::Right) => ("MouseEventKind.UP", "terminable.MouseButton.RIGHT"),
+                    MouseEventKindXT::Up(MouseButtonXT::Middle) => ("MouseEventKind.UP", "terminable.MouseButton.MIDDLE"),
+                    MouseEventKindXT::Drag(MouseButtonXT::Left) => ("MouseEventKind.DRAG", "terminable.MouseButton.LEFT"),
+                    MouseEventKindXT::Drag(MouseButtonXT::Right) => ("MouseEventKind.DRAG", "terminable.MouseButton.RIGHT"),
+                    MouseEventKindXT::Drag(MouseButtonXT::Middle) => ("MouseEventKind.DRAG", "terminable.MouseButton.MIDDLE"),
+                    MouseEventKindXT::Moved => ("MouseEventKind.MOVED", "None"),
+                    MouseEventKindXT::ScrollDown => ("MouseEventKind.SCROLL_DOWN", "None"),
+                    MouseEventKindXT::ScrollUp => ("MouseEventKind.SCROLL_UP", "None"),
+                };
 
-            //     return Ok(MouseEvent { kind: kind, button: button, column: mouse_event.column, row: mouse_event.row, modifiers }.into_py(py));
-            // }
-            // Event::Resize(columns, rows) => return Ok(ResizeEvent { columns: columns, rows: rows }.into_py(py)),
-            _ => {
-                panic!("Unhandled event");
+                let event_expr = format!(
+                    "terminable.MouseEvent(kind=terminable.{}, button={}, column={}, row={}, modifiers = {})",
+                    kind_expr,
+                    button_expr,
+                    mouse_event.column,
+                    mouse_event.row,
+                    modifiers_expr
+                );
+
+                return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+            }
+            Event::Resize(columns, rows) => {
+                let event_expr = format!("terminable.ResizeEvent(columns={}, rows={})", columns, rows);
+                return Ok(py.eval(&event_expr, None, None)?.to_object(py));
             }
         }
     }

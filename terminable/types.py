@@ -1,4 +1,4 @@
-from enum import auto, IntFlag
+from enum import auto, Enum, IntFlag
 from typing import NamedTuple
 
 class Char(NamedTuple):
@@ -7,7 +7,7 @@ class Char(NamedTuple):
 
 # A flattened version of crossterm::event::KeyCode
 # Key codes match https://blessed.readthedocs.io/en/latest/keyboard.html
-class Key:
+class Key(Enum):
 	BACKSPACE = 263
 	ENTER = 343
 	LEFT = 260
@@ -59,26 +59,26 @@ class KeyEvent(NamedTuple):
 	code: Key | Char
 	modifiers: KeyModifiers | None
 
-class MouseButton:
-	LEFT: int
-	RIGHT: int
-	MIDDLE: int
+class MouseButton(Enum):
+	LEFT = auto()
+	RIGHT = auto()
+	MIDDLE = auto()
 
-class MouseEventKind:
-	DOWN: int
-	UP: int
-	DRAG: int
-	MOVED: int
-	SCROLL_DOWN: int
-	SCROLL_UP: int
+class MouseEventKind(Enum):
+	DOWN = auto()
+	UP = auto()
+	DRAG = auto()
+	MOVED = auto()
+	SCROLL_DOWN = auto()
+	SCROLL_UP = auto()
 
-class MouseEvent:
+class MouseEvent(NamedTuple):
 	kind: MouseEventKind
 	button: MouseButton | None
 	column: int
 	row: int
 	modifiers: KeyModifiers
 
-class ResizeEvent:
+class ResizeEvent(NamedTuple):
 	columns: int
 	rows: int
