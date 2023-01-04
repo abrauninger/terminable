@@ -27,7 +27,7 @@ struct Char {
 #[pymethods]
 impl Char {
 	fn __repr__(&self) -> String {
-		format!("Char({})", self.code)
+		format!("Char('{}')", self.code)
 	}
 
 	#[classattr]
@@ -81,63 +81,79 @@ enum Key {
 	ESC = 361,
 }
 
-bitflags! {
-	#[pyclass]
-	struct KeyModifiers: u32 {
-		const NONE = 0x00;
-		const SHIFT = 0x01;
-		const CONTROL = 0x02;
-		const ALT = 0x04;
-	}
-}
+// bitflags! {
+// 	#[pyclass]
+// 	struct KeyModifiersConstants: u32 {
+// 		const NONE = 0x00;
+// 		const SHIFT = 0x01;
+// 		const CONTROL = 0x02;
+// 		const ALT = 0x04;
+// 	}
+// }
 
-#[pymethods]
-impl KeyModifiers {
-	fn __repr__(&self) -> String {
-		if *self == KeyModifiers::NONE {
-			"KeyModifiers.NONE".to_string()
-		}
-		else {
-			let mut value = String::new();
+// TODO: Remove
+// #[pymethods]
+// #[allow(non_snake_case)]
+// impl KeyModifiersConstants {
+// 	fn __repr__(&self) -> String {
+// 		if *self == KeyModifiersConstants::NONE {
+// 			"KeyModifiers.NONE".to_string()
+// 		}
+// 		else {
+// 			let mut value = String::new();
 
-			if (*self & KeyModifiers::SHIFT) != KeyModifiers::NONE {
-				value.push_str("KeyModifiers.SHIFT");
-			}
-			if (*self & KeyModifiers::CONTROL) != KeyModifiers::NONE {
-				if value.len() != 0 {
-					value.push_str(" | ");
-				}
-				value.push_str("KeyModifiers.CONTROL");
-			}
-			if (*self & KeyModifiers::ALT) != KeyModifiers::NONE {
-				if value.len() != 0 {
-					value.push_str(" | ");
-				}
-				value.push_str("KeyModifiers.ALT");
-			}
+// 			if (*self & KeyModifiersConstants::SHIFT) != KeyModifiersConstants::NONE {
+// 				value.push_str("KeyModifiers.SHIFT");
+// 			}
+// 			if (*self & KeyModifiersConstants::CONTROL) != KeyModifiersConstants::NONE {
+// 				if value.len() != 0 {
+// 					value.push_str(" | ");
+// 				}
+// 				value.push_str("KeyModifiers.CONTROL");
+// 			}
+// 			if (*self & KeyModifiersConstants::ALT) != KeyModifiersConstants::NONE {
+// 				if value.len() != 0 {
+// 					value.push_str(" | ");
+// 				}
+// 				value.push_str("KeyModifiers.ALT");
+// 			}
 
-			value
-		}
-	}
-}
+// 			value
+// 		}
+// 	}
 
-impl From<KeyModifiersXT> for KeyModifiers {
-	fn from(modifiers_xt: KeyModifiersXT) -> KeyModifiers {
-		let mut modifiers = KeyModifiers::NONE;
+// 	// #[getter]
+// 	// fn get_CONTROL(&self) -> PyResult<KeyModifiers> {
+// 	// 	//panic!("Tried to get CONTROL");
+// 	// 	//Ok(KeyModifiers::CONTROL)
+// 	// 	Err(PyException::new_err("Tried to get_CONTROL"))
+// 	// }
 
-		if (modifiers_xt & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
-			modifiers |= KeyModifiers::SHIFT;
-		}
-		if (modifiers_xt & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
-			modifiers |= KeyModifiers::CONTROL;
-		}
-		if (modifiers_xt & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
-			modifiers |= KeyModifiers::ALT;
-		}
+// 	// #[getter]
+// 	// fn get_ALT(&self) -> PyResult<KeyModifiers> {
+// 	// 	//panic!("Tried to get ALT");
+// 	// 	//Ok(KeyModifiers::ALT)
+// 	// 	Err(PyException::new_err("Tried to get_ALT"))
+// 	// }
+// }
 
-		return modifiers;
-	}
-}
+// impl From<KeyModifiersXT> for KeyModifiersConstants {
+// 	fn from(modifiers_xt: KeyModifiersXT) -> KeyModifiersConstants {
+// 		let mut modifiers = KeyModifiersConstants::NONE;
+
+// 		if (modifiers_xt & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
+// 			modifiers |= KeyModifiersConstants::SHIFT;
+// 		}
+// 		if (modifiers_xt & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
+// 			modifiers |= KeyModifiersConstants::CONTROL;
+// 		}
+// 		if (modifiers_xt & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
+// 			modifiers |= KeyModifiersConstants::ALT;
+// 		}
+
+// 		return modifiers;
+// 	}
+// }
 
 #[pyclass]
 struct KeyEvent {
@@ -145,7 +161,7 @@ struct KeyEvent {
 	code: PyObject,
 
 	#[pyo3(get)]
-	modifiers: KeyModifiers,
+	modifiers: PyObject,
 }
 
 #[pymethods]
@@ -190,7 +206,7 @@ struct MouseEvent {
 	row: u16,
 
 	#[pyo3(get)]
-	modifiers: KeyModifiers
+	modifiers: PyObject
 }
 
 #[pymethods]
@@ -261,13 +277,55 @@ impl Drop for RawMode {
 #[pyclass]
 struct TerminalInput {
 	raw_mode: Option<RawMode>,
+	// The following values are here because PyO3 doesn't support exporting bitflag enums to Python
+	modifiers_none: u8,
+	modifiers_shift: u8,
+	modifiers_control: u8,
+	modifiers_alt: u8,
 }
+
+fn get_keymodifier_constant_value(module: &PyModule, value_name: &str) -> PyResult<u8> {
+	let modifiers = module.getattr("KeyModifiers")?;
+	modifiers.getattr(value_name)?.getattr("value")?.extract()
+}
+
+fn get_modifiers_u8_from_xt(modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> u8 {
+	let mut modifiers = ti.modifiers_none;
+
+	if (modifiers_xt & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
+		modifiers |= ti.modifiers_shift;
+	}
+	if (modifiers_xt & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
+		modifiers |= ti.modifiers_control;
+	}
+	if (modifiers_xt & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
+		modifiers |= ti.modifiers_alt;
+	}
+
+	return modifiers;
+}
+
+fn get_modifiers_from_xt(py: Python<'_>, module: &PyModule, modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> PyResult<PyObject> {
+	let modifiers = module.getattr("KeyModifiers")?;
+	let u8_value = get_modifiers_u8_from_xt(modifiers_xt, ti);
+	return Ok(modifiers.call1((u8_value,))?.to_object(py));
+}
+
 
 #[pymethods]
 impl TerminalInput {
 	#[new]
-	fn new() -> Self {
-		TerminalInput { raw_mode: Some(RawMode::new()) }
+	fn new(py: Python<'_>) -> PyResult<Self> {
+		let module = PyModule::import(py, "terminable")?;
+		let terminal_input = TerminalInput {
+			raw_mode: Some(RawMode::new()),
+			modifiers_none: get_keymodifier_constant_value(module, "NONE")?,
+			modifiers_shift: get_keymodifier_constant_value(module, "SHIFT")?,
+			modifiers_control: get_keymodifier_constant_value(module, "CONTROL")?,
+			modifiers_alt: get_keymodifier_constant_value(module, "ALT")?,
+		};
+
+		Ok(terminal_input)
 	}
 
 	fn __enter__(slf: Py<Self>) -> Py<Self> {
@@ -283,6 +341,9 @@ impl TerminalInput {
 	}
 
 	fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
+		// TODO: Cache this
+		let module = PyModule::import(py, "terminable")?;
+
 		match crossterm::event::read()? {
     		Event::Key(key_event) => {
     			if let KeyCode::Char('c') = key_event.code {
@@ -292,7 +353,7 @@ impl TerminalInput {
 	    			}
 	    		}
 
-	    		let modifiers = KeyModifiers::from(key_event.modifiers);
+	    		let modifiers = get_modifiers_from_xt(py, module, key_event.modifiers, self)?;
 
     			let internal_key_event = match key_event.code {
     				KeyCode::Char(ch) => InternalKeyCode::Char(Char { code: ch }),
@@ -350,7 +411,7 @@ impl TerminalInput {
     			}
     		},
     		Event::Mouse(mouse_event) => {
-	    		let modifiers = KeyModifiers::from(mouse_event.modifiers);
+	    		let modifiers = get_modifiers_from_xt(py, module, mouse_event.modifiers, self)?;
 
     			let (kind, button) = match mouse_event.kind {
     				MouseEventKindXT::Down(MouseButtonXT::Left) => (MouseEventKind::DOWN, Some(MouseButton::LEFT)),
@@ -367,7 +428,7 @@ impl TerminalInput {
     				MouseEventKindXT::ScrollUp => (MouseEventKind::SCROLL_UP, None),
     			};
 
-    			return Ok(MouseEvent { kind: kind, button: button, column: mouse_event.column, row: mouse_event.row, modifiers: modifiers }.into_py(py));
+    			return Ok(MouseEvent { kind: kind, button: button, column: mouse_event.column, row: mouse_event.row, modifiers }.into_py(py));
     		}
     		Event::Resize(columns, rows) => return Ok(ResizeEvent { columns: columns, rows: rows }.into_py(py)),
 		}
@@ -375,15 +436,14 @@ impl TerminalInput {
 }
 
 #[pyfunction]
-fn capture_input() -> TerminalInput {
-	return TerminalInput::new();
+fn capture_input(py: Python<'_>) -> PyResult<TerminalInput> {
+	return TerminalInput::new(py);
 }
 
 #[pymodule]
 fn terminable(_py: Python, m: &PyModule) -> PyResult<()> {
 	m.add_class::<Char>()?;
 	m.add_class::<Key>()?;
-	m.add_class::<KeyModifiers>()?;
 	m.add_class::<KeyEvent>()?;
 	m.add_class::<MouseButton>()?;
 	m.add_class::<MouseEventKind>()?;
