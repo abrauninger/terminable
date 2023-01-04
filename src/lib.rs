@@ -235,9 +235,8 @@ impl TerminalInput {
                 return Ok(mouse_event_attr.call1((kind_py, button_py, mouse_event.column.into_py(py), mouse_event.row.into_py(py), modifiers_py))?.to_object(py));
             }
             Event::Resize(columns, rows) => {
-                // let event_expr = format!("{}.ResizeEvent(columns={}, rows={})", PKG_NAME, columns, rows);
-                // return Ok(py.eval(&event_expr, None, None)?.to_object(py));
-                panic!("TODO: Resize");
+                let resize_event_attr = module.getattr("ResizeEvent")?;
+                return Ok(resize_event_attr.call1((columns.into_py(py), rows.into_py(py)))?.to_object(py));
             }
         }
     }
