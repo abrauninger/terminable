@@ -1,3 +1,5 @@
+use const_format::formatcp;
+
 use crossterm::{
     event::{
         DisableMouseCapture,
@@ -52,7 +54,7 @@ struct ModifierConstants {
 
 impl ModifierConstants {
     fn new(py: Python<'_>) -> PyResult<Self> {
-        let module = PyModule::import(py, "terminable")?;
+        let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
 
         Ok(ModifierConstants {
             shift: get_keymodifier_constant_value(module, "SHIFT")?,
@@ -89,7 +91,7 @@ fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, constants: &ModifierConstant
     if modifiers == 0 {
         "None".to_string()
     } else {
-        format!("terminable.KeyModifiers({})", modifiers)
+        format!("{}.KeyModifiers({})", env!("CARGO_PKG_NAME"), modifiers)
     }
 }
 
@@ -124,6 +126,8 @@ impl TerminalInput {
     }
 
     fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
+        const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+
         match crossterm::event::read()? {
             Event::Key(key_event) => {
                 if let KeyCode::Char('c') = key_event.code {
@@ -156,29 +160,31 @@ impl TerminalInput {
                     _ => Err(PyException::new_err("Unrecognized keyboard event")),
                 }?;
 
-                let event_expr = format!("terminable.KeyEvent(code=terminable.{}, modifiers={})", code_expr, modifiers_expr);
+                let event_expr = format!("{}.KeyEvent(code={}.{}, modifiers={})", PKG_NAME, PKG_NAME, code_expr, modifiers_expr);
                 return Ok(py.eval(&event_expr, None, None)?.to_object(py));
             },
             Event::Mouse(mouse_event) => {
                 let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, &self.modifier_constants);
 
                 let (kind_expr, button_expr) = match mouse_event.kind {
-                    MouseEventKindXT::Down(MouseButtonXT::Left) => ("MouseEventKind.DOWN", "terminable.MouseButton.LEFT"),
-                    MouseEventKindXT::Down(MouseButtonXT::Right) => ("MouseEventKind.DOWN", "terminable.MouseButton.RIGHT"),
-                    MouseEventKindXT::Down(MouseButtonXT::Middle) => ("MouseEventKind.DOWN", "terminable.MouseButton.MIDDLE"),
-                    MouseEventKindXT::Up(MouseButtonXT::Left) => ("MouseEventKind.UP", "terminable.MouseButton.LEFT"),
-                    MouseEventKindXT::Up(MouseButtonXT::Right) => ("MouseEventKind.UP", "terminable.MouseButton.RIGHT"),
-                    MouseEventKindXT::Up(MouseButtonXT::Middle) => ("MouseEventKind.UP", "terminable.MouseButton.MIDDLE"),
-                    MouseEventKindXT::Drag(MouseButtonXT::Left) => ("MouseEventKind.DRAG", "terminable.MouseButton.LEFT"),
-                    MouseEventKindXT::Drag(MouseButtonXT::Right) => ("MouseEventKind.DRAG", "terminable.MouseButton.RIGHT"),
-                    MouseEventKindXT::Drag(MouseButtonXT::Middle) => ("MouseEventKind.DRAG", "terminable.MouseButton.MIDDLE"),
+                    MouseEventKindXT::Down(MouseButtonXT::Left) => ("MouseEventKind.DOWN", formatcp!("{}.MouseButton.LEFT", PKG_NAME)),
+                    MouseEventKindXT::Down(MouseButtonXT::Right) => ("MouseEventKind.DOWN", formatcp!("{}.MouseButton.RIGHT", PKG_NAME)),
+                    MouseEventKindXT::Down(MouseButtonXT::Middle) => ("MouseEventKind.DOWN", formatcp!("{}.MouseButton.MIDDLE", PKG_NAME)),
+                    MouseEventKindXT::Up(MouseButtonXT::Left) => ("MouseEventKind.UP", formatcp!("{}.MouseButton.LEFT", PKG_NAME)),
+                    MouseEventKindXT::Up(MouseButtonXT::Right) => ("MouseEventKind.UP", formatcp!("{}.MouseButton.RIGHT", PKG_NAME)),
+                    MouseEventKindXT::Up(MouseButtonXT::Middle) => ("MouseEventKind.UP", formatcp!("{}.MouseButton.MIDDLE", PKG_NAME)),
+                    MouseEventKindXT::Drag(MouseButtonXT::Left) => ("MouseEventKind.DRAG", formatcp!("{}.MouseButton.LEFT", PKG_NAME)),
+                    MouseEventKindXT::Drag(MouseButtonXT::Right) => ("MouseEventKind.DRAG", formatcp!("{}.MouseButton.RIGHT", PKG_NAME)),
+                    MouseEventKindXT::Drag(MouseButtonXT::Middle) => ("MouseEventKind.DRAG", formatcp!("{}.MouseButton.MIDDLE", PKG_NAME)),
                     MouseEventKindXT::Moved => ("MouseEventKind.MOVED", "None"),
                     MouseEventKindXT::ScrollDown => ("MouseEventKind.SCROLL_DOWN", "None"),
                     MouseEventKindXT::ScrollUp => ("MouseEventKind.SCROLL_UP", "None"),
                 };
 
                 let event_expr = format!(
-                    "terminable.MouseEvent(kind=terminable.{}, button={}, column={}, row={}, modifiers = {})",
+                    "{}.MouseEvent(kind={}.{}, button={}, column={}, row={}, modifiers = {})",
+                    PKG_NAME,
+                    PKG_NAME,
                     kind_expr,
                     button_expr,
                     mouse_event.column,
@@ -189,7 +195,7 @@ impl TerminalInput {
                 return Ok(py.eval(&event_expr, None, None)?.to_object(py));
             }
             Event::Resize(columns, rows) => {
-                let event_expr = format!("terminable.ResizeEvent(columns={}, rows={})", columns, rows);
+                let event_expr = format!("{}.ResizeEvent(columns={}, rows={})", PKG_NAME, columns, rows);
                 return Ok(py.eval(&event_expr, None, None)?.to_object(py));
             }
         }
