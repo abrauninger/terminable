@@ -95,6 +95,19 @@ fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, constants: &ModifierConstant
     }
 }
 
+fn get_modifiers_py<'a>(py: Python<'_>, module: &'a PyModule, modifiers_xt: KeyModifiersXT, constants: &ModifierConstants) -> PyResult<PyObject> {
+    let key_modifiers_attr = module.getattr("KeyModifiers")?;
+
+    let modifiers = get_modifiers_u8_from_xt(modifiers_xt, constants);
+
+    if modifiers == 0 {
+        return Ok(None::<PyObject>.into_py(py));
+    }
+    else {
+        return Ok(key_modifiers_attr.call1((modifiers,))?.to_object(py));
+    }
+}
+
 #[pyclass]
 struct TerminalInput {
     raw_mode: Option<RawMode>,
@@ -161,7 +174,21 @@ impl TerminalInput {
                 }?;
 
                 let event_expr = format!("{}.KeyEvent(code={}.{}, modifiers={})", PKG_NAME, PKG_NAME, code_expr, modifiers_expr);
-                return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+
+                //panic!("Event expr: {}", event_expr);
+                //return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+
+
+                let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
+                let char_attr = module.getattr("Char")?;
+                let key_event_attr = module.getattr("KeyEvent")?;
+
+                let char_py = char_attr.call1(('d',))?;
+                let modifiers_py = get_modifiers_py(py, module, key_event.modifiers, &self.modifier_constants)?;
+
+                let key_event_py = key_event_attr.call1((char_py, modifiers_py))?;
+
+                return Ok(key_event_py.to_object(py));
             },
             Event::Mouse(mouse_event) => {
                 let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, &self.modifier_constants);
