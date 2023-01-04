@@ -43,13 +43,23 @@ impl Drop for RawMode {
     }
 }
 
-#[pyclass]
-struct TerminalInput {
-    raw_mode: Option<RawMode>,
-    // The following values are here because PyO3 doesn't support exporting bitflag enums to Python
-    modifiers_shift: u8,
-    modifiers_control: u8,
-    modifiers_alt: u8,
+// Cached values for KeyModifiers constants (defined in types.py)
+struct ModifierConstants {
+    shift: u8,
+    control: u8,
+    alt: u8,
+}
+
+impl ModifierConstants {
+    fn new(py: Python<'_>) -> PyResult<Self> {
+        let module = PyModule::import(py, "terminable")?;
+
+        Ok(ModifierConstants {
+            shift: get_keymodifier_constant_value(module, "SHIFT")?,
+            control: get_keymodifier_constant_value(module, "CONTROL")?,
+            alt: get_keymodifier_constant_value(module, "ALT")?,
+        })
+    }
 }
 
 fn get_keymodifier_constant_value(module: &PyModule, value_name: &str) -> PyResult<u8> {
@@ -57,24 +67,24 @@ fn get_keymodifier_constant_value(module: &PyModule, value_name: &str) -> PyResu
     modifiers.getattr(value_name)?.getattr("value")?.extract()
 }
 
-fn get_modifiers_u8_from_xt(modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> u8 {
+fn get_modifiers_u8_from_xt(modifiers_xt: KeyModifiersXT, constants: &ModifierConstants) -> u8 {
     let mut modifiers = 0;
 
     if (modifiers_xt & KeyModifiersXT::SHIFT) != KeyModifiersXT::NONE {
-        modifiers |= ti.modifiers_shift;
+        modifiers |= constants.shift;
     }
     if (modifiers_xt & KeyModifiersXT::CONTROL) != KeyModifiersXT::NONE {
-        modifiers |= ti.modifiers_control;
+        modifiers |= constants.control;
     }
     if (modifiers_xt & KeyModifiersXT::ALT) != KeyModifiersXT::NONE {
-        modifiers |= ti.modifiers_alt;
+        modifiers |= constants.alt;
     }
 
     return modifiers;
 }
 
-fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> String {
-    let modifiers = get_modifiers_u8_from_xt(modifiers_xt, ti);
+fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, constants: &ModifierConstants) -> String {
+    let modifiers = get_modifiers_u8_from_xt(modifiers_xt, constants);
     
     if modifiers == 0 {
         "None".to_string()
@@ -83,17 +93,19 @@ fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, ti: &TerminalInput) -> Strin
     }
 }
 
+#[pyclass]
+struct TerminalInput {
+    raw_mode: Option<RawMode>,
+    modifier_constants: ModifierConstants,
+}
 
 #[pymethods]
 impl TerminalInput {
     #[new]
     fn new(py: Python<'_>) -> PyResult<Self> {
-        let module = PyModule::import(py, "terminable")?;
         let terminal_input = TerminalInput {
             raw_mode: Some(RawMode::new()),
-            modifiers_shift: get_keymodifier_constant_value(module, "SHIFT")?,
-            modifiers_control: get_keymodifier_constant_value(module, "CONTROL")?,
-            modifiers_alt: get_keymodifier_constant_value(module, "ALT")?,
+            modifier_constants: ModifierConstants::new(py)?,
         };
 
         Ok(terminal_input)
@@ -112,9 +124,6 @@ impl TerminalInput {
     }
 
     fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        // TODO: Cache this
-        let module = PyModule::import(py, "terminable")?;
-
         match crossterm::event::read()? {
             Event::Key(key_event) => {
                 if let KeyCode::Char('c') = key_event.code {
@@ -124,7 +133,7 @@ impl TerminalInput {
                     }
                 }
 
-                let modifiers_expr = get_modifiers_expr(key_event.modifiers, self);
+                let modifiers_expr = get_modifiers_expr(key_event.modifiers, &self.modifier_constants);
 
                 let code_expr = match key_event.code {
                     KeyCode::Char(ch) => Ok(format!("Char('{}')", ch)),
@@ -151,7 +160,7 @@ impl TerminalInput {
                 return Ok(py.eval(&event_expr, None, None)?.to_object(py));
             },
             Event::Mouse(mouse_event) => {
-                let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, self);
+                let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, &self.modifier_constants);
 
                 let (kind_expr, button_expr) = match mouse_event.kind {
                     MouseEventKindXT::Down(MouseButtonXT::Left) => ("MouseEventKind.DOWN", "terminable.MouseButton.LEFT"),
