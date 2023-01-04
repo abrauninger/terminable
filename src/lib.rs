@@ -51,9 +51,7 @@ struct ModifierConstants {
 }
 
 impl ModifierConstants {
-    fn new(py: Python<'_>) -> PyResult<Self> {
-        let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
-
+    fn new(module: &PyModule) -> PyResult<Self> {
         Ok(ModifierConstants {
             shift: get_keymodifier_constant_value(module, "SHIFT")?,
             control: get_keymodifier_constant_value(module, "CONTROL")?,
@@ -98,6 +96,7 @@ fn get_modifiers_py<'a>(py: Python<'_>, module: &'a PyModule, modifiers_xt: KeyM
 
 #[pyclass]
 struct TerminalInput {
+    module: Py<PyModule>,
     raw_mode: Option<RawMode>,
     modifier_constants: ModifierConstants,
 }
@@ -106,9 +105,14 @@ struct TerminalInput {
 impl TerminalInput {
     #[new]
     fn new(py: Python<'_>) -> PyResult<Self> {
+        // Import our Python module.
+        // Note that this is not the same as the Rust module that we would get with #[pyo3(pass_module)].
+        let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
+
         let terminal_input = TerminalInput {
+            module: module.into(),
             raw_mode: Some(RawMode::new()),
-            modifier_constants: ModifierConstants::new(py)?,
+            modifier_constants: ModifierConstants::new(module)?,
         };
 
         Ok(terminal_input)
@@ -127,8 +131,7 @@ impl TerminalInput {
     }
 
     fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        // TODO: Cache the module?  Or receive it as a parameter?
-        let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
+        let module = self.module.as_ref(py);
 
         match crossterm::event::read()? {
             Event::Key(key_event) => {
