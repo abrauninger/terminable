@@ -83,16 +83,6 @@ fn get_modifiers_u8_from_xt(modifiers_xt: KeyModifiersXT, constants: &ModifierCo
     return modifiers;
 }
 
-fn get_modifiers_expr(modifiers_xt: KeyModifiersXT, constants: &ModifierConstants) -> String {
-    let modifiers = get_modifiers_u8_from_xt(modifiers_xt, constants);
-    
-    if modifiers == 0 {
-        "None".to_string()
-    } else {
-        format!("{}.KeyModifiers({})", env!("CARGO_PKG_NAME"), modifiers)
-    }
-}
-
 fn get_modifiers_py<'a>(py: Python<'_>, module: &'a PyModule, modifiers_xt: KeyModifiersXT, constants: &ModifierConstants) -> PyResult<PyObject> {
     let key_modifiers_attr = module.getattr("KeyModifiers")?;
 

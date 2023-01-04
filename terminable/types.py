@@ -2,7 +2,6 @@ from enum import auto, Enum, IntFlag
 from typing import NamedTuple
 
 class Char(NamedTuple):
-	__match_args__ = ('code')
 	code: str
 
 # A flattened version of crossterm::event::KeyCode
