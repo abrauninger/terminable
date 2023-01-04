@@ -9,6 +9,5 @@ name = "terminable"
 crate-type = ["cdylib"]
 
 [dependencies]
-const_format = "0.2.30"
 crossterm = "0.23"
 pyo3 = { version = "0.17.3", features = ["extension-module"] }

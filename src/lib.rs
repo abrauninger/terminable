@@ -1,5 +1,3 @@
-use const_format::formatcp;
-
 use crossterm::{
     event::{
         DisableMouseCapture,
@@ -139,99 +137,107 @@ impl TerminalInput {
     }
 
     fn read(&mut self, py: Python<'_>) -> PyResult<PyObject> {
-        const PKG_NAME: &str = env!("CARGO_PKG_NAME");
+        // TODO: Cache the module?  Or receive it as a parameter?
+        let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
 
         match crossterm::event::read()? {
             Event::Key(key_event) => {
-                if let KeyCode::Char('c') = key_event.code {
-                    if key_event.modifiers == KeyModifiersXT::CONTROL {
-                        self.raw_mode = None;
-                        return Err(PyKeyboardInterrupt::new_err(""));
-                    }
-                }
-
-                // TODO: Cache the module?  Or receive it as a parameter?
-                let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
-
                 let key_event_attr = module.getattr("KeyEvent")?;
 
                 let modifiers_py = get_modifiers_py(py, module, key_event.modifiers, &self.modifier_constants)?;
 
-                match key_event.code {
-                    KeyCode::Char(ch) => {
-                        let char_py = module.getattr("Char")?.call1((ch,))?;
-                        return Ok(key_event_attr.call1((char_py, modifiers_py))?.to_object(py))
-                    },
-                    // KeyCode::F(n) => {
-                    //     let 
-                    //     Ok(format!("Key.F{}", n))
-                    // },
-                    // KeyCode::Backspace => Ok("Key.BACKSPACE".to_string()),
-                    // KeyCode::Enter => Ok("Key.ENTER".to_string()),
-                    // KeyCode::Left => Ok("Key.LEFT".to_string()),
-                    // KeyCode::Right => Ok("Key.RIGHT".to_string()),
-                    // KeyCode::Up => Ok("Key.UP".to_string()),
-                    // KeyCode::Down => Ok("Key.DOWN".to_string()),
-                    // KeyCode::Home => Ok("Key.HOME".to_string()),
-                    // KeyCode::End => Ok("Key.END".to_string()),
-                    // KeyCode::PageUp => Ok("Key.PAGEUP".to_string()),
-                    // KeyCode::PageDown => Ok("Key.PAGEDOWN".to_string()),
-                    // KeyCode::Tab => Ok("Key.TAB".to_string()),
-                    // KeyCode::BackTab => Ok("Key.BACKTAB".to_string()),
-                    // KeyCode::Delete => Ok("Key.DELETE".to_string()),
-                    // KeyCode::Insert => Ok("Key.INSERT".to_string()),
-                    // KeyCode::Esc => Ok("Key.ESC".to_string()),
-                    _ => Err(PyException::new_err("Unrecognized keyboard event")),
+                if let KeyCode::Char(ch) = key_event.code {
+                    if ch == 'c' && key_event.modifiers == KeyModifiersXT::CONTROL {
+                        self.raw_mode = None;
+                        return Err(PyKeyboardInterrupt::new_err(""));
+                    }
+
+                    let char_py = module.getattr("Char")?.call1((ch,))?;
+                    return Ok(key_event_attr.call1((char_py, modifiers_py))?.to_object(py));
                 }
 
-                // let event_expr = format!("{}.KeyEvent(code={}.{}, modifiers={})", PKG_NAME, PKG_NAME, code_expr, modifiers_expr);
+                let key_attr = module.getattr("Key")?;
 
-                //panic!("Event expr: {}", event_expr);
-                //return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+                let key_value_name = match key_event.code {
+                    KeyCode::F(1) => Ok("F1"),
+                    KeyCode::F(2) => Ok("F2"),
+                    KeyCode::F(3) => Ok("F3"),
+                    KeyCode::F(4) => Ok("F4"),
+                    KeyCode::F(5) => Ok("F5"),
+                    KeyCode::F(6) => Ok("F6"),
+                    KeyCode::F(7) => Ok("F7"),
+                    KeyCode::F(8) => Ok("F8"),
+                    KeyCode::F(9) => Ok("F9"),
+                    KeyCode::F(10) => Ok("F10"),
+                    KeyCode::F(11) => Ok("F11"),
+                    KeyCode::F(12) => Ok("F12"),
+                    KeyCode::F(13) => Ok("F13"),
+                    KeyCode::F(14) => Ok("F14"),
+                    KeyCode::F(15) => Ok("F15"),
+                    KeyCode::F(16) => Ok("F16"),
+                    KeyCode::F(17) => Ok("F17"),
+                    KeyCode::F(18) => Ok("F18"),
+                    KeyCode::F(19) => Ok("F19"),
+                    KeyCode::F(20) => Ok("F20"),
+                    KeyCode::F(21) => Ok("F21"),
+                    KeyCode::F(22) => Ok("F22"),
+                    KeyCode::F(23) => Ok("F23"),
+                    KeyCode::Backspace => Ok("BACKSPACE"),
+                    KeyCode::Enter => Ok("ENTER"),
+                    KeyCode::Left => Ok("LEFT"),
+                    KeyCode::Right => Ok("RIGHT"),
+                    KeyCode::Up => Ok("UP"),
+                    KeyCode::Down => Ok("DOWN"),
+                    KeyCode::Home => Ok("HOME"),
+                    KeyCode::End => Ok("END"),
+                    KeyCode::PageUp => Ok("PAGEUP"),
+                    KeyCode::PageDown => Ok("PAGEDOWN"),
+                    KeyCode::Tab => Ok("TAB"),
+                    KeyCode::BackTab => Ok("BACKTAB"),
+                    KeyCode::Delete => Ok("DELETE"),
+                    KeyCode::Insert => Ok("INSERT"),
+                    KeyCode::Esc => Ok("ESC"),
+                    _ => Err(PyException::new_err("Unrecognized keyboard event")),
+                }?;
 
-
-                // let char_attr = module.getattr("Char")?;
-
-                
-                
-                // let key_event_py = key_event_attr.call1((char_py, modifiers_py))?;
-
-                // return Ok(key_event_py.to_object(py));
+                let key_value_py = key_attr.getattr(key_value_name)?;
+                return Ok(key_event_attr.call1((key_value_py, modifiers_py))?.to_object(py));
             },
             Event::Mouse(mouse_event) => {
-                let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, &self.modifier_constants);
+                let mouse_event_kind_attr = module.getattr("MouseEventKind")?;
+                let mouse_button_attr = module.getattr("MouseButton")?;
+                let mouse_event_attr = module.getattr("MouseEvent")?;
+                
+                let modifiers_py = get_modifiers_py(py, module, mouse_event.modifiers, &self.modifier_constants)?;
 
-                let (kind_expr, button_expr) = match mouse_event.kind {
-                    MouseEventKindXT::Down(MouseButtonXT::Left) => ("MouseEventKind.DOWN", formatcp!("{}.MouseButton.LEFT", PKG_NAME)),
-                    MouseEventKindXT::Down(MouseButtonXT::Right) => ("MouseEventKind.DOWN", formatcp!("{}.MouseButton.RIGHT", PKG_NAME)),
-                    MouseEventKindXT::Down(MouseButtonXT::Middle) => ("MouseEventKind.DOWN", formatcp!("{}.MouseButton.MIDDLE", PKG_NAME)),
-                    MouseEventKindXT::Up(MouseButtonXT::Left) => ("MouseEventKind.UP", formatcp!("{}.MouseButton.LEFT", PKG_NAME)),
-                    MouseEventKindXT::Up(MouseButtonXT::Right) => ("MouseEventKind.UP", formatcp!("{}.MouseButton.RIGHT", PKG_NAME)),
-                    MouseEventKindXT::Up(MouseButtonXT::Middle) => ("MouseEventKind.UP", formatcp!("{}.MouseButton.MIDDLE", PKG_NAME)),
-                    MouseEventKindXT::Drag(MouseButtonXT::Left) => ("MouseEventKind.DRAG", formatcp!("{}.MouseButton.LEFT", PKG_NAME)),
-                    MouseEventKindXT::Drag(MouseButtonXT::Right) => ("MouseEventKind.DRAG", formatcp!("{}.MouseButton.RIGHT", PKG_NAME)),
-                    MouseEventKindXT::Drag(MouseButtonXT::Middle) => ("MouseEventKind.DRAG", formatcp!("{}.MouseButton.MIDDLE", PKG_NAME)),
-                    MouseEventKindXT::Moved => ("MouseEventKind.MOVED", "None"),
-                    MouseEventKindXT::ScrollDown => ("MouseEventKind.SCROLL_DOWN", "None"),
-                    MouseEventKindXT::ScrollUp => ("MouseEventKind.SCROLL_UP", "None"),
+                let (kind_value_name, button_value_name) = match mouse_event.kind {
+                    MouseEventKindXT::Down(MouseButtonXT::Left) => ("DOWN", Some("LEFT")),
+                    MouseEventKindXT::Down(MouseButtonXT::Right) => ("DOWN", Some("RIGHT")),
+                    MouseEventKindXT::Down(MouseButtonXT::Middle) => ("DOWN", Some("MIDDLE")),
+                    MouseEventKindXT::Up(MouseButtonXT::Left) => ("UP", Some("LEFT")),
+                    MouseEventKindXT::Up(MouseButtonXT::Right) => ("UP", Some("RIGHT")),
+                    MouseEventKindXT::Up(MouseButtonXT::Middle) => ("UP", Some("MIDDLE")),
+                    MouseEventKindXT::Drag(MouseButtonXT::Left) => ("DRAG", Some("LEFT")),
+                    MouseEventKindXT::Drag(MouseButtonXT::Right) => ("DRAG", Some("RIGHT")),
+                    MouseEventKindXT::Drag(MouseButtonXT::Middle) => ("DRAG", Some("MIDDLE")),
+                    MouseEventKindXT::Moved => ("MOVED", None),
+                    MouseEventKindXT::ScrollDown => ("SCROLL_DOWN", None),
+                    MouseEventKindXT::ScrollUp => ("SCROLL_UP", None),
                 };
 
-                let event_expr = format!(
-                    "{}.MouseEvent(kind={}.{}, button={}, column={}, row={}, modifiers = {})",
-                    PKG_NAME,
-                    PKG_NAME,
-                    kind_expr,
-                    button_expr,
-                    mouse_event.column,
-                    mouse_event.row,
-                    modifiers_expr
-                );
+                let kind_py = mouse_event_kind_attr.getattr(kind_value_name)?;
 
-                return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+                let button_py = match button_value_name {
+                    Some(button_value) => mouse_button_attr.getattr(button_value)?.to_object(py),
+                    None => None::<PyObject>.into_py(py)
+                };
+
+                return Ok(mouse_event_attr.call1((kind_py, button_py, mouse_event.column.into_py(py), mouse_event.row.into_py(py), modifiers_py))?.to_object(py));
             }
             Event::Resize(columns, rows) => {
-                let event_expr = format!("{}.ResizeEvent(columns={}, rows={})", PKG_NAME, columns, rows);
-                return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+                // let event_expr = format!("{}.ResizeEvent(columns={}, rows={})", PKG_NAME, columns, rows);
+                // return Ok(py.eval(&event_expr, None, None)?.to_object(py));
+                panic!("TODO: Resize");
             }
         }
     }
