@@ -1,7 +1,7 @@
 
 class Char:
 	__match_args__ = ('code')
-	
+
 	code: str
 
 class Key:
@@ -44,40 +44,7 @@ class Key:
 	F22: int
 	F23: int
 	ESC: int
-
-class KeyModifiers:
-	NONE: int
-	SHIFT: int
-	CONTROL: int
-	ALT: int
-
-class KeyEvent:
-	code: Key | Char
-	modifiers: KeyModifiers
-
-class MouseButton:
-	LEFT: int
-	RIGHT: int
-	MIDDLE: int
-
-class MouseEventKind:
-	DOWN: int
-	UP: int
-	DRAG: int
-	MOVED: int
-	SCROLL_DOWN: int
-	SCROLL_UP: int
-
-class MouseEvent:
-	kind: MouseEventKind
-	button: MouseButton | None
-	column: int
-	row: int
-	modifiers: KeyModifiers
-
-class ResizeEvent:
-	columns: int
-	rows: int
+	
 
 class TerminalInput:
 	def __enter__(self) -> TerminalInput: ...

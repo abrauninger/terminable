@@ -1,2 +1,2 @@
-from .keymodifiers import KeyModifiers
 from .terminable import *
+from .types import *
