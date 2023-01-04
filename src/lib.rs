@@ -150,45 +150,53 @@ impl TerminalInput {
                     }
                 }
 
-                let modifiers_expr = get_modifiers_expr(key_event.modifiers, &self.modifier_constants);
+                // TODO: Cache the module?  Or receive it as a parameter?
+                let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
 
-                let code_expr = match key_event.code {
-                    KeyCode::Char(ch) => Ok(format!("Char('{}')", ch)),
-                    KeyCode::F(n) => Ok(format!("Key.F{}", n)),
-                    KeyCode::Backspace => Ok("Key.BACKSPACE".to_string()),
-                    KeyCode::Enter => Ok("Key.ENTER".to_string()),
-                    KeyCode::Left => Ok("Key.LEFT".to_string()),
-                    KeyCode::Right => Ok("Key.RIGHT".to_string()),
-                    KeyCode::Up => Ok("Key.UP".to_string()),
-                    KeyCode::Down => Ok("Key.DOWN".to_string()),
-                    KeyCode::Home => Ok("Key.HOME".to_string()),
-                    KeyCode::End => Ok("Key.END".to_string()),
-                    KeyCode::PageUp => Ok("Key.PAGEUP".to_string()),
-                    KeyCode::PageDown => Ok("Key.PAGEDOWN".to_string()),
-                    KeyCode::Tab => Ok("Key.TAB".to_string()),
-                    KeyCode::BackTab => Ok("Key.BACKTAB".to_string()),
-                    KeyCode::Delete => Ok("Key.DELETE".to_string()),
-                    KeyCode::Insert => Ok("Key.INSERT".to_string()),
-                    KeyCode::Esc => Ok("Key.ESC".to_string()),
+                let key_event_attr = module.getattr("KeyEvent")?;
+
+                let modifiers_py = get_modifiers_py(py, module, key_event.modifiers, &self.modifier_constants)?;
+
+                match key_event.code {
+                    KeyCode::Char(ch) => {
+                        let char_py = module.getattr("Char")?.call1((ch,))?;
+                        return Ok(key_event_attr.call1((char_py, modifiers_py))?.to_object(py))
+                    },
+                    // KeyCode::F(n) => {
+                    //     let 
+                    //     Ok(format!("Key.F{}", n))
+                    // },
+                    // KeyCode::Backspace => Ok("Key.BACKSPACE".to_string()),
+                    // KeyCode::Enter => Ok("Key.ENTER".to_string()),
+                    // KeyCode::Left => Ok("Key.LEFT".to_string()),
+                    // KeyCode::Right => Ok("Key.RIGHT".to_string()),
+                    // KeyCode::Up => Ok("Key.UP".to_string()),
+                    // KeyCode::Down => Ok("Key.DOWN".to_string()),
+                    // KeyCode::Home => Ok("Key.HOME".to_string()),
+                    // KeyCode::End => Ok("Key.END".to_string()),
+                    // KeyCode::PageUp => Ok("Key.PAGEUP".to_string()),
+                    // KeyCode::PageDown => Ok("Key.PAGEDOWN".to_string()),
+                    // KeyCode::Tab => Ok("Key.TAB".to_string()),
+                    // KeyCode::BackTab => Ok("Key.BACKTAB".to_string()),
+                    // KeyCode::Delete => Ok("Key.DELETE".to_string()),
+                    // KeyCode::Insert => Ok("Key.INSERT".to_string()),
+                    // KeyCode::Esc => Ok("Key.ESC".to_string()),
                     _ => Err(PyException::new_err("Unrecognized keyboard event")),
-                }?;
+                }
 
-                let event_expr = format!("{}.KeyEvent(code={}.{}, modifiers={})", PKG_NAME, PKG_NAME, code_expr, modifiers_expr);
+                // let event_expr = format!("{}.KeyEvent(code={}.{}, modifiers={})", PKG_NAME, PKG_NAME, code_expr, modifiers_expr);
 
                 //panic!("Event expr: {}", event_expr);
                 //return Ok(py.eval(&event_expr, None, None)?.to_object(py));
 
 
-                let module = PyModule::import(py, env!("CARGO_PKG_NAME"))?;
-                let char_attr = module.getattr("Char")?;
-                let key_event_attr = module.getattr("KeyEvent")?;
+                // let char_attr = module.getattr("Char")?;
 
-                let char_py = char_attr.call1(('d',))?;
-                let modifiers_py = get_modifiers_py(py, module, key_event.modifiers, &self.modifier_constants)?;
+                
+                
+                // let key_event_py = key_event_attr.call1((char_py, modifiers_py))?;
 
-                let key_event_py = key_event_attr.call1((char_py, modifiers_py))?;
-
-                return Ok(key_event_py.to_object(py));
+                // return Ok(key_event_py.to_object(py));
             },
             Event::Mouse(mouse_event) => {
                 let modifiers_expr = get_modifiers_expr(mouse_event.modifiers, &self.modifier_constants);
